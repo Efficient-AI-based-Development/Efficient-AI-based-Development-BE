@@ -64,6 +64,7 @@ app/
 │
 ├── domain/                               # 비즈니스 로직(도메인 계층) 모음
 │   ├── project/                          # └─ Project 도메인 (예: 프로젝트 CRUD)
+│   │   ├── model.py                      #    └─ SQLAlchemy ORM 모델 정의 (DB 테이블) 
 │   │   ├── repo.py                       #    └─ DB 접근 로직 (SQLAlchemy 쿼리 담당)
 │   │   ├── schema.py                     #    └─ Pydantic 모델 (Request/Response)
 │   │   ├── service.py                    #    └─ 비즈니스 로직, 예외 처리 담당
