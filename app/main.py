@@ -1,0 +1,66 @@
+"""FastAPI application entry point."""
+
+from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.core.cors import setup_cors
+from app.core.exceptions import (
+    database_exception_handler,
+    app_exception_handler,
+    general_exception_handler,
+    AppException,
+)
+from app.api.v1.routes import router as v1_router
+
+# 로깅 설정
+setup_logging()
+
+# FastAPI 앱 생성
+app = FastAPI(
+    title="Efficient AI Backend",
+    description="AI 기반 효율적인 개발 백엔드 시스템",
+    version="0.1.0",
+    debug=settings.debug,
+)
+
+# CORS 설정
+setup_cors(app)
+
+# 예외 핸들러 등록
+from sqlalchemy.exc import SQLAlchemyError
+app.add_exception_handler(SQLAlchemyError, database_exception_handler)
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
+
+# API 라우터 등록
+app.include_router(v1_router, prefix=settings.api_prefix)
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """루트 엔드포인트 - /docs로 리다이렉트"""
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/health", tags=["health"])
+async def health_check():
+    """헬스 체크 엔드포인트"""
+    return {
+        "status": "healthy",
+        "version": "0.1.0",
+        "debug": settings.debug,
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+    )
+

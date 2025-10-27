@@ -1,0 +1,16 @@
+"""API v1 route modules."""
+
+from fastapi import APIRouter
+
+from app.api.v1.routes import projects, documents, generate, tasks, insights, mcp
+
+router = APIRouter()
+
+# 라우터 등록
+router.include_router(projects.router)
+router.include_router(documents.router)
+router.include_router(generate.router)
+router.include_router(tasks.router)
+router.include_router(insights.router)
+router.include_router(mcp.router)
+
