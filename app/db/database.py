@@ -7,7 +7,7 @@ from app.core.config import settings
 
 # Oracle-specific engine configuration
 engine = create_engine(
-    settings.database_url,
+    settings.get_database_url,
     pool_pre_ping=True,  # 연결 전 유효성 검사
     pool_size=5,  # 연결 풀 크기
     max_overflow=10,  # 추가 연결 허용
