@@ -29,9 +29,9 @@ def get_project_service(projectID: int, db: Session) -> Project:
             detail="database error"
         )
 
-def create_project_service(request: ProjectCreateRequest, db: Session) -> Project:
+def create_project_service(request: ProjectCreateRequest, user_id:str, db: Session) -> Project:
     try:
-        project = create_new_project_repo(request, db)
+        project = create_new_project_repo(request, user_id, db)
         db.commit()
         db.refresh(project)
         return project
@@ -50,14 +50,14 @@ def create_project_service(request: ProjectCreateRequest, db: Session) -> Projec
             detail="database error"
         )
 
-def get_project_list_service(params: PaginationParams, db: Session) -> ProjectPage:
+def get_project_list_service(params: PaginationParams, user_id: str, db: Session) -> ProjectPage:
     try:
         q = (params.q or "").strip() or None
         per_page = min(max(10, params.pageSize), 50)
         page = max(1, params.page or 1)
 
 
-        projects_orm, total = get_project_list_repo(q=q, page=page, per_page=per_page, db = db)
+        projects_orm, total = get_project_list_repo(q=q, page=page, per_page=per_page, user_id=user_id, db = db)
         total_pages = max(1, int((total + per_page - 1) / per_page))
 
         if page > total_pages:
@@ -76,7 +76,7 @@ def get_project_list_service(params: PaginationParams, db: Session) -> ProjectPa
             detail="database error"
         )
 
-def update_project_service(projectID: int, request: ProjectUpdateRequest, db: Session) -> Project:
+def update_project_service(projectID: int, request: ProjectUpdateRequest, user_id:str, db: Session) -> Project:
     try:
         project = update_project_repo(projectID, request, db)
         db.commit()
@@ -95,13 +95,13 @@ def update_project_service(projectID: int, request: ProjectUpdateRequest, db: Se
             detail="database error"
         )
 
-def delete_project_service(projectID: int, db: Session) -> ProjectDeleteResponse:
+def delete_project_service(projectID: int, user_id: str, db: Session) -> ProjectDeleteResponse:
     try:
-        project, delete_time = delete_project_repo(projectID, db)
+        project, delete_time = delete_project_repo(projectID, user_id, db)
 
         db.commit()
 
-        deleted_project = ProjectDeleteResponse(id = project.id, title = project.title, deleted_at = delete_time)
+        deleted_project = ProjectDeleteResponse(id = project.id, project_idx = project.project_idx, title = project.title, deleted_at = delete_time)
 
         return deleted_project
 
@@ -141,14 +141,16 @@ def get_project_by_id(projectID: int, db: Session) -> Project:
     return project
 
 
-def create_new_project_repo(request: ProjectCreateRequest, db: Session) -> Project:
-    project = Project(**request.model_dump())
+def create_new_project_repo(request: ProjectCreateRequest, user_id:str, db: Session) -> Project:
+    data = request.model_dump()
+    data['owner_id'] = user_id
+    project = Project(**data)
     db.add(project)
     return project
 
 
-def get_project_list_repo(q: str | None, page: int, per_page: int, db: Session) -> tuple[list[Project], int]:
-    query = db.query(Project)
+def get_project_list_repo(q: str | None, page: int, per_page: int, user_id: str, db: Session) -> tuple[list[Project], int]:
+    query = db.query(Project).filter(Project.owner_id == user_id)
     if q:
         query = query.filter(Project.title.ilike(f"%{q}%"))
 
@@ -162,8 +164,9 @@ def get_project_list_repo(q: str | None, page: int, per_page: int, db: Session) 
 
     return items, total
 
-def update_project_repo(projectID: int, request: ProjectUpdateRequest, db: Session) -> Project:
-    project = db.query(Project).filter(Project.id == projectID).one()
+def update_project_repo(projectID: int, request: ProjectUpdateRequest, user_id: str, db: Session) -> Project:
+
+    project = db.query(Project).filter(Project.owner_id == user_id, Project.id == projectID).one()
 
     data = request.model_dump(exclude_unset=True, exclude_none=True)
 
@@ -173,8 +176,8 @@ def update_project_repo(projectID: int, request: ProjectUpdateRequest, db: Sessi
     return project
 
 
-def delete_project_repo(projectID: int, db: Session) -> tuple[Project, datetime]:
-    project = db.query(Project).filter(Project.id == projectID).one()
+def delete_project_repo(projectID: int, user_id: str, db: Session) -> tuple[Project, datetime]:
+    project = db.query(Project).filter(Project.owner_id == user_id, Project.id == projectID).one()
     delete_time = datetime.now(timezone.utc)
 
     db.delete(project)
