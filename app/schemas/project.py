@@ -4,6 +4,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 class ProjectBase(BaseModel):
+    id: int
+    project_idx: int
+    status: Literal["not_started", "in_progress", "completed"] | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+# 요청 DTO
+class ProjectCreateRequest(BaseModel):
     title: str
     service_color: str
     page_size: int
@@ -11,12 +19,14 @@ class ProjectBase(BaseModel):
     AI_model: str
     tech_stack: str
 
-    model_config = ConfigDict(from_attributes=True)
+class ProjectCreateResponse(ProjectBase):
+    title: str
+    service_color: str
+    page_size: int
+    func_cnt: int
+    AI_model: str
+    tech_stack: str
 
-
-# 요청 DTO
-class ProjectCreateRequest(ProjectBase):
-    pass
 
 class ProjectUpdateRequest(BaseModel):
     title: str | None = None
@@ -24,8 +34,6 @@ class ProjectUpdateRequest(BaseModel):
 
 # 단일 응답 DTO (공통 응답)
 class ProjectRead(ProjectBase):
-    id: int
-    project_idx: int
     created_at: datetime
     updated_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
