@@ -61,5 +61,8 @@ class ProjectDeleteResponse(BaseModel):
     deleted_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-
+class PaginationParams(BaseModel):
+    q: str | None = None
+    page: int = 1
+    pageSize: int = 10
 

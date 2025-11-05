@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.domain.projects import create_project_service, get_project_service, get_project_list_service, \
+    update_project_service, delete_project_service
 from app.schemas.project import ProjectCreateRequest, ProjectUpdateRequest, ProjectRead, ProjectPage, \
     ProjectDeleteResponse
 
@@ -33,3 +35,4 @@ def update_project(projectID: int, request: ProjectUpdateRequest, db: Session = 
 @router.delete("/{projectID}", response_model=ProjectDeleteResponse, status_code=200)
 def delete_project(projectID: int, db: Session = Depends(get_db)):
     return delete_project_service(projectID, db)
+
