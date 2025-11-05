@@ -1,4 +1,5 @@
 import traceback
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import HTTPException, Query
@@ -10,11 +11,12 @@ from app.db.models import Project
 from app.schemas.project import ProjectCreateRequest, ProjectPage, ProjectRead, PageMeta, ProjectUpdateRequest, \
     ProjectDeleteResponse, PaginationParams
 
-
-############### 서비스 정의 ###############
+#################################################################################################################################################################
+########################################################################### 서비스 정의 ###########################################################################
+#################################################################################################################################################################
 def get_project_service(projectID: int, db: Session) -> Project:
     try:
-        project = repo.get_project_by_id(projectID, db)
+        project = get_project_by_id(projectID, db)
         return project
     except NoResultFound:
         raise HTTPException(
@@ -29,7 +31,7 @@ def get_project_service(projectID: int, db: Session) -> Project:
 
 def create_project_service(request: ProjectCreateRequest, db: Session) -> Project:
     try:
-        project = repo.create_new_project_repo(request, db)
+        project = create_new_project_repo(request, db)
         db.commit()
         db.refresh(project)
         return project
@@ -55,7 +57,7 @@ def get_project_list_service(params: PaginationParams, db: Session) -> ProjectPa
         page = max(1, params.page or 1)
 
 
-        projects_orm, total = repo.get_project_list_repo(q=q, page=page, per_page=per_page, db = db)
+        projects_orm, total = get_project_list_repo(q=q, page=page, per_page=per_page, db = db)
         total_pages = max(1, int((total + per_page - 1) / per_page))
 
         if page > total_pages:
@@ -76,7 +78,7 @@ def get_project_list_service(params: PaginationParams, db: Session) -> ProjectPa
 
 def update_project_service(projectID: int, request: ProjectUpdateRequest, db: Session) -> Project:
     try:
-        project = repo.update_project_repo(projectID, request, db)
+        project = update_project_repo(projectID, request, db)
         db.commit()
         db.refresh(project)
         return project
@@ -95,7 +97,7 @@ def update_project_service(projectID: int, request: ProjectUpdateRequest, db: Se
 
 def delete_project_service(projectID: int, db: Session) -> ProjectDeleteResponse:
     try:
-        project, delete_time = repo.delete_project_repo(projectID, db)
+        project, delete_time = delete_project_repo(projectID, db)
 
         db.commit()
 
@@ -129,3 +131,52 @@ def get_pagination_params(
             detail=f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다. (page={page}, pageSize={pageSize})"
         )
     return PaginationParams(q=q, pageSize=pageSize, page=page)
+
+
+#################################################################################################################################################################
+########################################################################### REPO 관리 ############################################################################
+#################################################################################################################################################################
+def get_project_by_id(projectID: int, db: Session) -> Project:
+    project = db.query(Project).filter(Project.id == projectID).one()
+    return project
+
+
+def create_new_project_repo(request: ProjectCreateRequest, db: Session) -> Project:
+    project = Project(**request.model_dump())
+    db.add(project)
+    return project
+
+
+def get_project_list_repo(q: str | None, page: int, per_page: int, db: Session) -> tuple[list[Project], int]:
+    query = db.query(Project)
+    if q:
+        query = query.filter(Project.title.ilike(f"%{q}%"))
+
+    total = query.count()
+
+    items = (query
+             .order_by(Project.id.desc())
+             .offset((page - 1) * per_page)
+             .limit(per_page)
+             .all())
+
+    return items, total
+
+def update_project_repo(projectID: int, request: ProjectUpdateRequest, db: Session) -> Project:
+    project = db.query(Project).filter(Project.id == projectID).one()
+
+    data = request.model_dump(exclude_unset=True, exclude_none=True)
+
+    for k, v in data.items():
+        setattr(project, k, v)
+
+    return project
+
+
+def delete_project_repo(projectID: int, db: Session) -> tuple[Project, datetime]:
+    project = db.query(Project).filter(Project.id == projectID).one()
+    delete_time = datetime.now(timezone.utc)
+
+    db.delete(project)
+
+    return project, delete_time
