@@ -1,74 +1,35 @@
-"""Project API routes."""
-
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import Project as ProjectModel
-from app.schemas.project import (
-    ProjectCreate,
-    ProjectUpdate,
-    ProjectResponse,
-    ProjectListResponse,
-)
+from app.schemas.project import ProjectCreateRequest, ProjectUpdateRequest, ProjectRead, ProjectPage, \
+    ProjectDeleteResponse
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(prefix="/projects", tags=["project"])
 
 
-@router.post("/", response_model=ProjectResponse, status_code=201)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
-    """프로젝트 생성
-    
-    POST /api/v1/projects/
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
+@router.post("", response_model=ProjectRead, status_code=201)
+def create_project(request: ProjectCreateRequest, db: Session = Depends(get_db)):
+    return create_project_service(request, db)
 
 
-@router.get("/", response_model=ProjectListResponse)
-def list_projects(q: str = None, page: int = 1, page_size: int = 10, db: Session = Depends(get_db)):
-    """프로젝트 목록 조회
-    
-    GET /api/v1/projects
-    - q: 프로젝트 제목 검색
-    - page: 페이지 번호
-    - page_size: 한 페이지당 항목 수
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
+@router.get("/{projectID}", response_model=ProjectRead, status_code=200)
+def get_project(projectID: int, db: Session = Depends(get_db)):
+    return get_project_service(projectID, db)
 
 
-@router.get("/{project_id}", response_model=ProjectResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
-    """프로젝트 조회
-    
-    GET /api/v1/projects/{project_id}
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
-
-
-@router.patch("/{project_id}", response_model=ProjectResponse)
-def update_project(
-    project_id: int,
-    project: ProjectUpdate,
-    db: Session = Depends(get_db)
+@router.get("", response_model=ProjectPage, status_code=200)
+def get_project_list(
+    params: PaginationParams = Depends(get_pagination_params), db: Session = Depends(get_db)
 ):
-    """프로젝트 수정
-    
-    PATCH /api/v1/projects/{project_id}
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return get_project_list_service(params, db)
 
 
-@router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: int, db: Session = Depends(get_db)):
-    """프로젝트 삭제
-    
-    DELETE /api/v1/projects/{project_id}
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
+@router.patch("/{projectID}", response_model=ProjectRead, status_code=200)
+def update_project(projectID: int, request: ProjectUpdateRequest, db: Session = Depends(get_db)):
+    return update_project_service(projectID, request, db)
 
+
+@router.delete("/{projectID}", response_model=ProjectDeleteResponse, status_code=200)
+def delete_project(projectID: int, db: Session = Depends(get_db)):
+    return delete_project_service(projectID, db)
