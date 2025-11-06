@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.schemas.document import DocumentRead, DocumentCreateRequest, DocumentUpdateRequest, DocumentPage
 
 router = APIRouter(prefix="", tags=["documents"])
 

@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     DateTime,
     ForeignKey,
-    CheckConstraint,
+    CheckConstraint, CLOB, func, UniqueConstraint, Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -106,122 +106,55 @@ class Document(Base):
     Attributes:
         id: 문서 고유 ID
         project_id: 프로젝트 외래키
+        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'UserStory', 'SRS')
         title: 문서 제목
-        content: 문서 내용 (CLOB - 긴 텍스트 저장)
-        doc_type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'UserStory', 'SRS')
+        content_md: 문서 내용 (CLOB - 긴 텍스트 저장)
+        author_id: 만든 사람
+        last_editor_id: 최근 수정 사람
         created_at: 생성 시간
         updated_at: 수정 시간
     
     Relationships:
         - project: 소속 프로젝트
-        - versions: 문서의 버전들
     """
+    __tablename__ = 'documents'
 
-    __tablename__ = "documents"
-
-    id = Column(
-        Integer,
-        primary_key=True,
-        autoincrement=True,
-        comment="문서 고유 ID",
-    )
+    id = Column(Integer, primary_key=True)
     project_id = Column(
         Integer,
-        ForeignKey("projects.id", ondelete="CASCADE"),
-        nullable=False,
-        comment="프로젝트 외래키",
+        ForeignKey('projects.id', ondelete='CASCADE'),  # FK + 삭제시 CASCADE
+        nullable=False
     )
-    title = Column(
-        String(500),
-        nullable=False,
-        comment="문서 제목",
-    )
-    content = Column(
-        Text,
-        comment="문서 내용 (CLOB)",
-    )
-    doc_type = Column(
-        String(50),
-        nullable=False,
-        comment="문서 타입",
-    )
+    type = Column(String(20), nullable=False)
+    title = Column(String(300), nullable=False)
+    content_md = Column(CLOB)
+    author_id = Column(String(120), nullable=False)
+    last_editor_id = Column(String(120), nullable=False)
     created_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        comment="생성 시간",
+        DateTime(timezone=True),
+        server_default=func.now(),  # Oracle의 DEFAULT SYSTIMESTAMP 대응
+        nullable=False
     )
     updated_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        comment="수정 시간",
+        DateTime(timezone=True),
+        nullable=True,  # DDL에서도 nullable임
+        onupdate=func.now()  # UPDATE 시 자동 갱신
     )
 
-    # Relationships
-    project = relationship("Project", back_populates="documents")
-    versions = relationship("DocumentVersion", back_populates="document")
-
+    # 테이블 제약 조건 및 인덱스
     __table_args__ = (
         CheckConstraint(
-            "doc_type IN ('PRD', 'UserStory', 'SRS')",
-            name="chk_document_type",
+            "type IN ('PRD','USER_STORY','TRD')",
+            name='ck_documents_type'
         ),
+        UniqueConstraint('project_id', 'title', name='uq_documents_project_title'),
+        Index('ix_documents_project_type', 'project_id', 'type'),
     )
 
-
-class DocumentVersion(Base):
-    """문서 버전 모델
-    
-    문서의 변경 이력을 버전별로 관리합니다.
-    
-    Attributes:
-        id: 버전 ID
-        document_id: 문서 외래키
-        version_number: 버전 번호 (정수)
-        content: 해당 버전의 내용 (CLOB)
-        created_at: 버전 생성 시간
-    
-    설명:
-        - 문서가 수정될 때마다 새 버전이 생성됨
-        - 버전 번호는 순차적으로 증가 (1, 2, 3, ...)
-        - 이전 버전의 내용은 항상 복구 가능
-    """
-
-    __tablename__ = "document_versions"
-
-    id = Column(
-        Integer,
-        primary_key=True,
-        autoincrement=True,
-        comment="버전 ID",
+    project = relationship(
+        "Project",
+        back_populates="documents",
     )
-    document_id = Column(
-        Integer,
-        ForeignKey("documents.id", ondelete="CASCADE"),
-        nullable=False,
-        comment="문서 외래키",
-    )
-    version_number = Column(
-        Integer,
-        nullable=False,
-        comment="버전 번호",
-    )
-    content = Column(
-        Text,
-        nullable=False,
-        comment="버전별 문서 내용 (CLOB)",
-    )
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        comment="버전 생성 시간",
-    )
-
-    # Relationships
-    document = relationship("Document", back_populates="versions")
 
 
 class Task(Base):
