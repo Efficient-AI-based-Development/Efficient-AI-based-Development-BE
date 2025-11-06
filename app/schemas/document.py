@@ -18,7 +18,7 @@ class DocumentBase(BaseModel):
 
 class DocumentCreate(DocumentBase):
     """문서 생성 요청 스키마
-    
+
     POST /api/v1/projects/{project_id}/docs 요청 시 사용
     """
     pass
@@ -26,7 +26,7 @@ class DocumentCreate(DocumentBase):
 
 class DocumentUpdate(BaseModel):
     """문서 수정 요청 스키마
-    
+
     PATCH /api/v1/docs/{docID} 요청 시 사용
     """
     title: Optional[str] = Field(None, description="문서 제목", max_length=500)
@@ -36,20 +36,20 @@ class DocumentUpdate(BaseModel):
 
 class DocumentResponse(DocumentBase):
     """문서 응답 스키마
-    
+
     GET /api/v1/docs/{docID} 응답 시 사용
     """
     id: int
     project_id: int
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentListResponse(BaseModel):
     """문서 목록 응답 스키마
-    
+
     GET /api/v1/projects/{projectID}/docs/ 응답 시 사용
     """
     items: List[DocumentResponse]
@@ -58,7 +58,7 @@ class DocumentListResponse(BaseModel):
 
 class DocumentVersionResponse(BaseModel):
     """문서 버전 응답 스키마
-    
+
     GET /api/v1/document-versions/{id} 응답 시 사용
     """
     id: int
@@ -66,6 +66,6 @@ class DocumentVersionResponse(BaseModel):
     version_number: int
     content: str
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
