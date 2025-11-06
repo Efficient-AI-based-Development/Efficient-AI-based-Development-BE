@@ -1,12 +1,17 @@
 import traceback
+from typing import List
 
 from fastapi import HTTPException
 from sqlalchemy.exc import NoResultFound, SQLAlchemyError, IntegrityError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from app.db.models import Document
+from app.db.models import Document, Project
 from app.schemas.document import DocumentCreateRequest, DocumentUpdateRequest, DocumentPage, DocumentRead
+
+#################################################################################################################################################################
+########################################################################### 서비스 정의 ###########################################################################
+#################################################################################################################################################################
 
 
 def create_document_service(projectID: int, user_id: str, request: DocumentCreateRequest, db: Session) -> Document:
@@ -49,7 +54,7 @@ def create_document_service(projectID: int, user_id: str, request: DocumentCreat
 
 def get_document_service(projectID: int, type: str, user_id: str, db: Session) -> Document:
     try:
-        document = get_document_by_id(projectID, type, user_id, db)
+        document = get_document(projectID, type, user_id, db)
         return document
     except NoResultFound:
         raise HTTPException(
@@ -100,5 +105,52 @@ def get_document_list_service(projectID: int, user_id:str, db: Session) -> Docum
             detail="database error"
         )
 
+#################################################################################################################################################################
+########################################################################### REPO 정의 ###########################################################################
+#################################################################################################################################################################
+
+def check_document_exist(projectID: int, user_id: str, request: DocumentCreateRequest, db: Session) -> Document | None:
+    return db.query(Document).filter(
+        Document.author_id == user_id, Document.project_id == projectID, Document.type == request.type
+    ).first()
+
+def get_project_by_id(project_id: int, user_id: str, db: Session) -> Project | None:
+    return db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one_or_none()
+
+
+def create_new_document_repo(projectID:int, user_id:str, request: DocumentCreateRequest, db: Session) -> Document:
+    # 프로젝트 존재 검사
+    data = request.model_dump()
+    data['projectID'] = projectID
+    data['author_id'] = user_id
+
+    document = Document(**data)
+    db.add(document)
+    return document
+
+def get_document(projectID: int, type: str, user_id: str, db: Session) -> Document:
+    document = db.query(Document).filter(
+        Document.author_id == user_id,
+        Document.project_id == projectID,
+        Document.type == type).one()
+    return document
+
+def update_document_repo(projectID: int, type: str, user_id: str, request: DocumentUpdateRequest, db: Session) -> Document:
+    document = db.query(Document).filter(
+        Document.author_id == user_id,
+        Document.project_id == projectID,
+        Document.type == type).one()
+    data = request.model_dump(exclude_unset=True, exclude_none=True)
+
+    for k, v in data.items():
+        setattr(document, k, v)
+
+    return document
+
+
+def get_document_list_repo(projectID: int, user_id: str, db: Session) -> List[DocumentRead]:
+    return db.query(Document).filter(
+        Document.author_id == user_id,
+        Document.project_id == projectID).all()
 
 
