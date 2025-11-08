@@ -1,9 +1,12 @@
 """MCP (Model Context Protocol) API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.domain.mcp import MCPService
 from app.schemas.mcp import (
     MCPConnectionCreate,
     MCPConnectionResponse,
@@ -17,23 +20,28 @@ from app.schemas.mcp import (
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
 
+def _service(db: Session) -> MCPService:
+    return MCPService(db)
+
+
 # Connections
 @router.post("/connections", response_model=MCPConnectionResponse, status_code=201)
 def create_connection(connection: MCPConnectionCreate, db: Session = Depends(get_db)):
     """MCP 연결 생성"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).create_connection(connection)
 
 
-@router.get("/connections")
+@router.get("/connections", response_model=List[MCPConnectionResponse])
 def list_connections(project_id: int = None, db: Session = Depends(get_db)):
     """MCP 연결 목록 조회"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).list_connections(project_id=project_id)
 
 
 @router.delete("/connections/{connection_id}", status_code=204)
 def delete_connection(connection_id: int, db: Session = Depends(get_db)):
     """MCP 연결 종료"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    _service(db).deactivate_connection(connection_id)
+    return Response(status_code=204)
 
 
 # Sessions
