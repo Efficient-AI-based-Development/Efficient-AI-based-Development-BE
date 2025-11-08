@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.db.models import Project
 from app.domain.projects import create_project_service, get_project_service, get_project_list_service, \
     update_project_service, delete_project_service, get_pagination_params
 from app.schemas.project import ProjectCreateRequest, ProjectUpdateRequest, ProjectRead, ProjectPage, \
-    ProjectDeleteResponse, PaginationParams
+    ProjectDeleteResponse, PaginationParams, ProjectCreateResponse
 
 router = APIRouter(prefix="/projects", tags=["project"])
 

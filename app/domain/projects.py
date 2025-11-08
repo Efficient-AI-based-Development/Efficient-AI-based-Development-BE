@@ -1,3 +1,4 @@
+import json
 import traceback
 from datetime import datetime, timezone
 from typing import List
@@ -31,7 +32,7 @@ def get_project_service(projectID: int, db: Session) -> Project:
 
 def create_project_service(request: ProjectCreateRequest, user_id:str, db: Session) -> Project:
     try:
-        project = create_new_project_repo(request, user_id, db)
+        project = create_new_project_repo(request, user_id,  db)
         db.commit()
         db.refresh(project)
         return project
@@ -142,9 +143,12 @@ def get_project_by_id(projectID: int, db: Session) -> Project:
 
 
 def create_new_project_repo(request: ProjectCreateRequest, user_id:str, db: Session) -> Project:
+
     data = request.model_dump()
-    data['owner_id'] = user_id
-    project = Project(**data)
+
+    content_md = json.dumps(data, ensure_ascii=False, indent=2)
+
+    project = Project(title=data['title'], content_md = content_md, owner_id=user_id)
     db.add(project)
     return project
 

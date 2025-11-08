@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict
 class ProjectBase(BaseModel):
     id: int
     project_idx: int
+    title: str
+    content_md: str | None = None
     status: Literal["not_started", "in_progress", "completed"] | None = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,6 +36,7 @@ class ProjectUpdateRequest(BaseModel):
 
 # 단일 응답 DTO (공통 응답)
 class ProjectRead(ProjectBase):
+    owner_id: str
     created_at: datetime
     updated_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
