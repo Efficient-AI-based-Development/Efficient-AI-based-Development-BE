@@ -1,56 +1,27 @@
 """Chat-related Pydantic schemas."""
 
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
+class FileType(str, Enum):
+    project = "PROJECT"
+    prd = "PRD"
+    userstory = "USERSTORY"
+    srs = "SRS"
+    task = "TASK"
 
-class ChatMessageCreate(BaseModel):
-    """채팅 메시지 생성 요청 스키마
-    
-    POST /api/chats/{chatID}/messages 요청 시 사용
-    """
-    content: str = Field(..., description="메시지 내용")
-    role: str = Field(
-        default="user",
-        description="메시지 역할",
-        examples=["user", "assistant", "system"]
-    )
+class ChatMessageRequest(BaseModel):
+    content_md: str
 
+class ChatSessionCreateRequest(ChatMessageRequest):
+    file_type: FileType
+    project_id: int | None = None
 
-class ChatMessageResponse(BaseModel):
-    """채팅 메시지 응답 스키마"""
-    id: int
-    chat_id: int
-    content: str
-    role: str
+class ChatSessionCreateResponse(BaseModel):
+    chat_id: str
+    file_type: FileType
+    file_id: int
     created_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ChatSessionCreate(BaseModel):
-    """채팅 세션 생성 요청 스키마
-    
-    POST /api/v1/docs/{docID}/chats 요청 시 사용
-    """
-    doc_id: int = Field(..., description="문서 ID")
-    title: Optional[str] = Field(None, description="채팅 세션 제목")
-
-
-class ChatSessionResponse(BaseModel):
-    """채팅 세션 응답 스키마"""
-    id: int
-    doc_id: int
-    title: Optional[str]
-    created_at: datetime
-    updated_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ChatListResponse(BaseModel):
-    """채팅 세션 목록 응답 스키마"""
-    items: List[ChatSessionResponse]
-    total: int = Field(..., description="전체 세션 수")
-
+    updated_at: datetime | None = None

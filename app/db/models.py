@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     DateTime,
     ForeignKey,
-    CheckConstraint,
+    CheckConstraint, TIMESTAMP, text, CLOB,
 )
 from sqlalchemy.orm import relationship
 
@@ -222,6 +222,89 @@ class DocumentVersion(Base):
 
     # Relationships
     document = relationship("Document", back_populates="versions")
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        comment="채팅 세션 고유 ID"
+    )
+
+    file_type = Column(
+        String(20),
+        nullable=False,
+        comment="파일 타입 (PROJECT, PRD, USERSTORY, SRS, TASK)"
+    )
+
+    file_id = Column(
+        Integer,
+        nullable=False,
+        comment="연결된 파일 ID"
+    )
+
+    user_id = Column(
+        String(120),
+        nullable=False,
+        comment="세션 소유자 ID"
+    )
+
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=text("SYSTIMESTAMP"),
+        nullable=False,
+        comment="세션 생성 시간"
+    )
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="메시지 고유 ID"
+    )
+
+    session_id = Column(
+        Integer,
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="연결된 채팅 세션 ID"
+    )
+
+    role = Column(
+        String(50),
+        nullable=False,
+        comment="메시지 주체 (user, assistant, system, tool)"
+    )
+
+    user_id = Column(
+        String(120),
+        nullable=True,
+        comment="사용자 ID"
+    )
+
+    content = Column(
+        CLOB,
+        nullable=True,
+        comment="메시지 내용 (텍스트)"
+    )
+
+    tool_calls_json = Column(
+        CLOB,
+        nullable=True,
+        comment="AI tool 호출 정보(JSON 문자열)"
+    )
+
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=text("SYSTIMESTAMP"),
+        nullable=False,
+        comment="메시지 생성 시각"
+    )
+
 
 
 class Task(Base):
