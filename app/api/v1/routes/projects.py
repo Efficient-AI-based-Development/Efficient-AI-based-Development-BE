@@ -6,7 +6,7 @@ from app.db.models import Project
 from app.domain.projects import create_project_service, get_project_service, get_project_list_service, \
     update_project_service, delete_project_service, get_pagination_params
 from app.schemas.project import ProjectCreateRequest, ProjectUpdateRequest, ProjectRead, ProjectPage, \
-    ProjectDeleteResponse, PaginationParams, ProjectCreateResponse
+    ProjectDeleteResponse, PaginationParams
 
 router = APIRouter(prefix="/projects", tags=["project"])
 
@@ -30,10 +30,10 @@ def get_project_list(
 
 @router.patch("/{projectID}", response_model=ProjectRead, status_code=200)
 def update_project(projectID: int, request: ProjectUpdateRequest, user_id: str = Header(..., alias = "X-User-ID"), db: Session = Depends(get_db)):
-    return update_project_service(projectID, request, user_id, db)
+    return update_project_service(projectID, user_id, request, db)
 
 
 @router.delete("/{projectID}", response_model=ProjectDeleteResponse, status_code=200)
-def delete_project(projectID: int, user_id: str = Header(..., alias = "X-User-ID"),db: Session = Depends(get_db)):
+def delete_project(projectID: int, user_id: str = Header(..., alias = "X-User-ID"), db: Session = Depends(get_db)):
     return delete_project_service(projectID, user_id, db)
 

@@ -15,10 +15,10 @@ from app.schemas.project import ProjectCreateRequest, ProjectPage, ProjectRead, 
 #################################################################################################################################################################
 ########################################################################### 서비스 정의 ###########################################################################
 #################################################################################################################################################################
-def get_project_service(projectID: int, db: Session) -> Project:
+def get_project_service(projectID: int, db: Session) -> ProjectRead:
     try:
         project = get_project_by_id(projectID, db)
-        return project
+        return to_project_read(project)
     except NoResultFound:
         raise HTTPException(
             status_code=404,
@@ -30,12 +30,13 @@ def get_project_service(projectID: int, db: Session) -> Project:
             detail="database error"
         )
 
-def create_project_service(request: ProjectCreateRequest, user_id:str, db: Session) -> Project:
+def create_project_service(request: ProjectCreateRequest, user_id:str, db: Session) -> ProjectRead:
     try:
         project = create_new_project_repo(request, user_id,  db)
         db.commit()
         db.refresh(project)
-        return project
+        json_content = json.loads(project.content_md)
+        return ProjectRead(**project.__dict__, content_md_json=json_content)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -67,7 +68,7 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
                 detail=f"page는 최대 {total_pages}까지입니다. (total={total}, pageSize={params.pageSize})"
             )
 
-        projects: List[ProjectRead] = [ProjectRead.model_validate(p) for p in projects_orm]
+        projects: List[ProjectRead] = [to_project_read(p) for p in projects_orm]
         meta = PageMeta(page=page, pageSize=per_page, total=total)
 
         return ProjectPage(projects=projects, meta=meta)
@@ -77,12 +78,25 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
             detail="database error"
         )
 
-def update_project_service(projectID: int, request: ProjectUpdateRequest, user_id:str, db: Session) -> Project:
+def to_project_read(project):
+    json_content = None
+    if project.content_md:
+        try:
+            json_content = json.loads(project.content_md)
+        except:
+            json_content = None
+
+    return ProjectRead(
+        **project.__dict__,
+        content_md_json=json_content
+    )
+
+def update_project_service(projectID: int, user_id:str, request: ProjectUpdateRequest, db: Session) -> ProjectRead:
     try:
-        project = update_project_repo(projectID, request, db)
+        project = update_project_repo(projectID, user_id, request, db)
         db.commit()
         db.refresh(project)
-        return project
+        return to_project_read(project)
     except NoResultFound:
         db.rollback()
         raise HTTPException(
@@ -98,13 +112,15 @@ def update_project_service(projectID: int, request: ProjectUpdateRequest, user_i
 
 def delete_project_service(projectID: int, user_id: str, db: Session) -> ProjectDeleteResponse:
     try:
-        project, delete_time = delete_project_repo(projectID, user_id, db)
-
+        project = delete_project_repo(projectID, user_id, db)
+        resp = ProjectDeleteResponse(
+            id=project.id,
+            project_idx=project.project_idx,
+            title=project.title,
+            deleted_at=datetime.now(timezone.utc),
+        )
         db.commit()
-
-        deleted_project = ProjectDeleteResponse(id = project.id, project_idx = project.project_idx, title = project.title, deleted_at = delete_time)
-
-        return deleted_project
+        return resp
 
     except NoResultFound:
         db.rollback()
@@ -168,7 +184,7 @@ def get_project_list_repo(q: str | None, page: int, per_page: int, user_id: str,
 
     return items, total
 
-def update_project_repo(projectID: int, request: ProjectUpdateRequest, user_id: str, db: Session) -> Project:
+def update_project_repo(projectID: int, user_id: str, request: ProjectUpdateRequest, db: Session) -> Project:
 
     project = db.query(Project).filter(Project.owner_id == user_id, Project.id == projectID).one()
 
@@ -180,10 +196,7 @@ def update_project_repo(projectID: int, request: ProjectUpdateRequest, user_id: 
     return project
 
 
-def delete_project_repo(projectID: int, user_id: str, db: Session) -> tuple[Project, datetime]:
+def delete_project_repo(projectID: int, user_id: str, db: Session) -> Project:
     project = db.query(Project).filter(Project.owner_id == user_id, Project.id == projectID).one()
-    delete_time = datetime.now(timezone.utc)
-
     db.delete(project)
-
-    return project, delete_time
+    return project

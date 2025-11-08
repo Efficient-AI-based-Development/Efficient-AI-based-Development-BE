@@ -95,9 +95,24 @@ class Project(Base):
     )
 
     # Relationships
-    documents = relationship("Document", back_populates="project")
-    tasks = relationship("Task", back_populates="project")
-    gen_jobs = relationship("GenJob", back_populates="project")
+    documents = relationship(
+        "Document",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,  # DB에 ON DELETE CASCADE 있으면 이걸 켜면 추가 DELETE 안 날림
+    )
+    tasks = relationship(
+        "Task",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    gen_jobs = relationship(
+        "GenJob",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     # Check constraints
     __table_args__ = (

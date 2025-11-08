@@ -1,6 +1,6 @@
 """Project-related Pydantic schemas."""
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Any
 from pydantic import BaseModel, ConfigDict
 
 class ProjectBase(BaseModel):
@@ -8,6 +8,7 @@ class ProjectBase(BaseModel):
     project_idx: int
     title: str
     content_md: str | None = None
+    content_md_json: dict[str, Any] | None = None
     status: Literal["not_started", "in_progress", "completed"] | None = None
     model_config = ConfigDict(from_attributes=True)
 
