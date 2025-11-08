@@ -95,17 +95,104 @@ class MCPService:
     # ------------------------------------------------------------------
     # Catalog
     # ------------------------------------------------------------------
+    _TOOL_REGISTRY: Dict[str, List[Dict[str, Any]]] = {
+        "cursor": [
+            {
+                "name": "syncTasks",
+                "description": "프로젝트 태스크를 Cursor와 동기화합니다.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "force": {
+                            "type": "boolean",
+                            "description": "이미 동기화된 태스크를 재강제할지 여부",
+                        }
+                    },
+                },
+            }
+        ],
+        "claude": [
+            {
+                "name": "summarizeRequirements",
+                "description": "중요 요구사항을 요약합니다.",
+            }
+        ],
+        "chatgpt": [
+            {
+                "name": "draftMeetingNotes",
+                "description": "회의록 초안을 생성합니다.",
+            }
+        ],
+    }
+
+    _RESOURCE_REGISTRY: Dict[str, List[Dict[str, Any]]] = {
+        "cursor": [
+            {
+                "uri": "project://tasks",
+                "name": "프로젝트 태스크",
+                "description": "Cursor 프로젝트에 등록된 태스크 목록",
+            }
+        ],
+        "claude": [
+            {
+                "uri": "knowledge://architecture",
+                "name": "아키텍처 문서",
+                "description": "최신 시스템 아키텍처 요약",
+            }
+        ],
+        "chatgpt": [
+            {
+                "uri": "knowledge://guideline",
+                "name": "개발 가이드",
+                "description": "팀 개발 가이드라인",
+            }
+        ],
+    }
+
+    _PROMPT_REGISTRY: Dict[str, List[Dict[str, Any]]] = {
+        "cursor": [
+            {
+                "name": "implementFeature",
+                "description": "주어진 요구사항을 구현하는 제안서를 생성합니다.",
+                "arguments": [
+                    {"name": "requirement", "type": "string", "description": "요구사항"},
+                ],
+            }
+        ],
+        "claude": [
+            {
+                "name": "brainstormIdeas",
+                "description": "새로운 기능 아이디어를 브레인스토밍합니다.",
+            }
+        ],
+        "chatgpt": [
+            {
+                "name": "writeTestCases",
+                "description": "테스트 케이스 초안을 작성합니다.",
+            }
+        ],
+    }
+
     def list_tools(self, session_id: int) -> Dict[str, Any]:
         """세션별 사용 가능한 MCP 툴 목록 조회."""
-        raise NotImplementedError
+        session = self._get_session(session_id)
+        connection_type = session.connection.connection_type
+        tools = self._TOOL_REGISTRY.get(connection_type, [])
+        return {"items": tools, "total": len(tools)}
 
     def list_resources(self, session_id: int) -> Dict[str, Any]:
         """세션별 리소스 목록 조회."""
-        raise NotImplementedError
+        session = self._get_session(session_id)
+        connection_type = session.connection.connection_type
+        resources = self._RESOURCE_REGISTRY.get(connection_type, [])
+        return {"items": resources, "total": len(resources)}
 
     def list_prompts(self, session_id: int) -> Dict[str, Any]:
         """세션별 프롬프트 목록 조회."""
-        raise NotImplementedError
+        session = self._get_session(session_id)
+        connection_type = session.connection.connection_type
+        prompts = self._PROMPT_REGISTRY.get(connection_type, [])
+        return {"items": prompts, "total": len(prompts)}
 
     # ------------------------------------------------------------------
     # Run

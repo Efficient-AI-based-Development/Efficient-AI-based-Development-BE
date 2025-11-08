@@ -68,19 +68,19 @@ def delete_session(session_id: int, db: Session = Depends(get_db)):
 @router.get("/tools")
 def list_tools(session_id: int, db: Session = Depends(get_db)):
     """MCP 툴 목록 조회"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).list_tools(session_id=session_id)
 
 
 @router.get("/resources")
 def list_resources(session_id: int, db: Session = Depends(get_db)):
     """MCP 리소스 목록 조회"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).list_resources(session_id=session_id)
 
 
 @router.get("/prompts")
 def list_prompts(session_id: int, db: Session = Depends(get_db)):
     """MCP 프롬프트 목록 조회"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).list_prompts(session_id=session_id)
 
 
 # Runs
