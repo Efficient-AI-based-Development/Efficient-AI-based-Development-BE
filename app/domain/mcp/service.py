@@ -199,19 +199,53 @@ class MCPService:
     # ------------------------------------------------------------------
     def create_run(self, payload: MCPRunCreate) -> MCPRunResponse:
         """MCP 실행 생성."""
-        raise NotImplementedError
+        session = self._get_session(payload.session_id)
+        if session.status != "active":
+            raise ValidationError("비활성화된 세션에서는 실행을 생성할 수 없습니다.")
+
+        run = models.MCPRun(
+            session_id=session.id,
+            tool_name=payload.tool_name,
+            prompt_name=payload.prompt_name,
+            arguments=self._dump_json(payload.arguments),
+            status="running" if payload.tool_name or payload.prompt_name else "pending",
+            progress="0.0",
+        )
+        self.db.add(run)
+        self.db.commit()
+        self.db.refresh(run)
+        return self._to_run_response(run)
 
     def get_run(self, run_id: int) -> MCPRunStatusResponse:
         """MCP 실행 상태 조회."""
-        raise NotImplementedError
+        run = self._get_run(run_id)
+        return self._to_run_status_response(run)
 
     def cancel_run(self, run_id: int) -> MCPRunStatusResponse:
         """MCP 실행 취소."""
-        raise NotImplementedError
+        run = self._get_run(run_id)
+        if run.status in {"completed", "failed", "cancelled"}:
+            raise ValidationError("이미 종료된 실행입니다.")
+        run.status = "cancelled"
+        run.message = "사용자 요청으로 실행이 취소되었습니다."
+        run.progress = "0.0"
+        self.db.add(run)
+        self.db.commit()
+        self.db.refresh(run)
+        return self._to_run_status_response(run)
 
     def list_run_events(self, run_id: int) -> Dict[str, Any]:
         """MCP 실행 이벤트 목록."""
-        raise NotImplementedError
+        run = self._get_run(run_id)
+        events = [
+            {
+                "type": "status",
+                "status": run.status,
+                "progress": self._as_float(run.progress),
+                "message": run.message,
+            }
+        ]
+        return {"items": events, "total": len(events)}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -241,6 +275,12 @@ class MCPService:
         if not session:
             raise NotFoundError("MCPSession", str(session_id))
         return session
+
+    def _get_run(self, run_id: int) -> models.MCPRun:
+        run = self.db.query(models.MCPRun).filter(models.MCPRun.id == run_id).first()
+        if not run:
+            raise NotFoundError("MCPRun", str(run_id))
+        return run
 
     def _build_setup_commands(self, connection: models.MCPConnection) -> List[str]:
         # TODO: 실제 CLI 토큰 발급 로직 연동 필요
@@ -282,5 +322,35 @@ class MCPService:
             return json.loads(payload)
         except json.JSONDecodeError as exc:
             raise ValidationError(f"JSON 파싱에 실패했습니다: {exc}") from exc
+
+    def _to_run_response(self, run: models.MCPRun) -> MCPRunResponse:
+        return MCPRunResponse(
+            id=run.id,
+            session_id=run.session_id,
+            status=run.status,
+            result=run.result,
+            arguments=self._load_json(run.arguments),
+            progress=self._as_float(run.progress),
+            message=run.message,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+        )
+
+    def _to_run_status_response(self, run: models.MCPRun) -> MCPRunStatusResponse:
+        return MCPRunStatusResponse(
+            id=run.id,
+            status=run.status,
+            progress=self._as_float(run.progress),
+            message=run.message,
+            result=run.result,
+        )
+
+    def _as_float(self, value: Optional[str]) -> Optional[float]:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
 

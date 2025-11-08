@@ -87,23 +87,23 @@ def list_prompts(session_id: int, db: Session = Depends(get_db)):
 @router.post("/runs", response_model=MCPRunResponse, status_code=201)
 def create_run(run: MCPRunCreate, db: Session = Depends(get_db)):
     """MCP 실행 생성"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).create_run(run)
 
 
 @router.get("/runs/{run_id}", response_model=MCPRunStatusResponse)
 def get_run(run_id: int, db: Session = Depends(get_db)):
     """MCP 실행 상태 조회"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).get_run(run_id)
 
 
 @router.post("/runs/{run_id}/cancel", status_code=200)
 def cancel_run(run_id: int, db: Session = Depends(get_db)):
     """MCP 실행 취소"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).cancel_run(run_id)
 
 
 @router.get("/runs/{run_id}/events")
 def stream_run_events(run_id: int, db: Session = Depends(get_db)):
     """MCP 실행 이벤트 스트리밍 (SSE)"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).list_run_events(run_id)
 
