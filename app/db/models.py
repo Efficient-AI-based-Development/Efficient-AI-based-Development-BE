@@ -1,16 +1,17 @@
-"""SQLAlchemy models for Oracle database.
+"""SQLAlchemy models for database.
 
-이 파일에는 Oracle 데이터베이스에 생성될 모든 테이블의 모델이 정의되어 있습니다.
+이 파일에는 데이터베이스에 생성될 모든 테이블의 모델이 정의되어 있습니다.
 
-Oracle 전용 설계 특징:
-1. ENUM 대신 VARCHAR2 + CHECK 제약조건 사용
-2. 긴 텍스트는 CLOB 타입 사용
-3. PK는 IDENTITY 컬럼 사용 (Oracle 12c+)
-4. 타임스탬프는 TIMESTAMP 사용
+설계 특징 (Oracle/SQLite 호환):
+1. ENUM 대신 VARCHAR + CHECK 제약조건 사용 (양쪽 모두 지원)
+2. 긴 텍스트는 Text 타입 사용 (Oracle: CLOB, SQLite: TEXT)
+3. PK는 autoincrement 사용 (Oracle: IDENTITY, SQLite: AUTOINCREMENT)
+4. 타임스탬프는 DateTime 사용
 
 주의사항:
-- Oracle은 Python의 datetime과 잘 작동하지만, 타임존 설정에 주의
-- VARCHAR2는 최대 4000바이트 (CLOB은 무제한)
+- 로컬 개발 시 SQLite 사용 권장 (sqlite:///./local.db)
+- 프로덕션에서는 Oracle 사용 (oracle+oracledb://...)
+- 모델은 양쪽 데이터베이스 모두 호환되도록 설계됨
 """
 
 from datetime import datetime
@@ -88,6 +89,7 @@ class Project(Base):
     documents = relationship("Document", back_populates="project")
     tasks = relationship("Task", back_populates="project")
     gen_jobs = relationship("GenJob", back_populates="project")
+    mcp_connections = relationship("MCPConnection", back_populates="project")
 
     # Check constraints
     __table_args__ = (
@@ -459,6 +461,238 @@ class GenJob(Base):
         CheckConstraint(
             "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
             name="chk_gen_job_status",
+        ),
+    )
+
+
+class MCPConnection(Base):
+    """MCP 연결 모델
+    
+    MCP (Model Context Protocol) 연결 정보를 저장합니다.
+    
+    Attributes:
+        id: 연결 고유 ID
+        project_id: 프로젝트 외래키
+        connection_type: 연결 타입 (VARCHAR2 + CHECK: 'cursor', 'claude', 'chatgpt')
+        status: 연결 상태 (VARCHAR2 + CHECK: 'active', 'inactive', 'error')
+        created_at: 생성 시간
+        updated_at: 수정 시간
+    
+    Relationships:
+        - project: 소속 프로젝트
+        - sessions: 이 연결의 세션들
+    """
+
+    __tablename__ = "mcp_connections"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="연결 고유 ID",
+    )
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="프로젝트 외래키",
+    )
+    connection_type = Column(
+        String(50),
+        nullable=False,
+        comment="연결 타입",
+    )
+    status = Column(
+        String(50),
+        nullable=False,
+        default="active",
+        comment="연결 상태",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        comment="생성 시간",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        comment="수정 시간",
+    )
+
+    # Relationships
+    project = relationship("Project", back_populates="mcp_connections")
+    sessions = relationship("MCPSession", back_populates="connection")
+
+    __table_args__ = (
+        CheckConstraint(
+            "connection_type IN ('cursor', 'claude', 'chatgpt')",
+            name="chk_mcp_connection_type",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'inactive', 'error')",
+            name="chk_mcp_connection_status",
+        ),
+    )
+
+
+class MCPSession(Base):
+    """MCP 세션 모델
+    
+    MCP 세션 정보를 저장합니다.
+    
+    Attributes:
+        id: 세션 고유 ID
+        connection_id: 연결 외래키
+        status: 세션 상태 (VARCHAR2 + CHECK: 'active', 'closed', 'error')
+        context: 세션 컨텍스트 (JSON 형태로 저장, Text 타입)
+        created_at: 생성 시간
+        updated_at: 수정 시간
+    
+    Relationships:
+        - connection: 소속 연결
+        - runs: 이 세션의 실행들
+    """
+
+    __tablename__ = "mcp_sessions"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="세션 고유 ID",
+    )
+    connection_id = Column(
+        Integer,
+        ForeignKey("mcp_connections.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="연결 외래키",
+    )
+    status = Column(
+        String(50),
+        nullable=False,
+        default="active",
+        comment="세션 상태",
+    )
+    context = Column(
+        Text,
+        comment="세션 컨텍스트 (JSON)",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        comment="생성 시간",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        comment="수정 시간",
+    )
+
+    # Relationships
+    connection = relationship("MCPConnection", back_populates="sessions")
+    runs = relationship("MCPRun", back_populates="session")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'closed', 'error')",
+            name="chk_mcp_session_status",
+        ),
+    )
+
+
+class MCPRun(Base):
+    """MCP 실행 모델
+    
+    MCP 툴/프롬프트 실행 정보를 저장합니다.
+    
+    Attributes:
+        id: 실행 고유 ID
+        session_id: 세션 외래키
+        tool_name: 툴 이름 (선택적)
+        prompt_name: 프롬프트 이름 (선택적)
+        status: 실행 상태 (VARCHAR2 + CHECK: 'pending', 'running', 'completed', 'failed', 'cancelled')
+        result: 실행 결과 (CLOB)
+        arguments: 실행 인자 (JSON 형태로 저장, Text 타입)
+        progress: 진행률 (0-1, String)
+        message: 상태 메시지
+        created_at: 생성 시간
+        updated_at: 수정 시간
+    
+    Relationships:
+        - session: 소속 세션
+    """
+
+    __tablename__ = "mcp_runs"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="실행 고유 ID",
+    )
+    session_id = Column(
+        Integer,
+        ForeignKey("mcp_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="세션 외래키",
+    )
+    tool_name = Column(
+        String(255),
+        comment="툴 이름",
+    )
+    prompt_name = Column(
+        String(255),
+        comment="프롬프트 이름",
+    )
+    status = Column(
+        String(50),
+        nullable=False,
+        default="pending",
+        comment="실행 상태",
+    )
+    result = Column(
+        Text,
+        comment="실행 결과 (CLOB)",
+    )
+    arguments = Column(
+        Text,
+        comment="실행 인자 (JSON)",
+    )
+    progress = Column(
+        String(10),
+        comment="진행률 (0-1)",
+    )
+    message = Column(
+        String(500),
+        comment="상태 메시지",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        comment="생성 시간",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        comment="수정 시간",
+    )
+
+    # Relationships
+    session = relationship("MCPSession", back_populates="runs")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
+            name="chk_mcp_run_status",
         ),
     )
 

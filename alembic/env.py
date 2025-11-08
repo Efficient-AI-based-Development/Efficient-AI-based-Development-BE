@@ -32,6 +32,9 @@ from app.db.models import (  # noqa: F401
     Task,
     TaskLink,
     GenJob,
+    MCPConnection,
+    MCPSession,
+    MCPRun,
 )
 
 # this is the Alembic Config object, which provides
