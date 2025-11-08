@@ -10,15 +10,16 @@ def create_chat_session_with_message_service(user_id: str, request: ChatSessionC
     file, file_type = create_and_check_file_id(user_id, request, db)
 
     # chat session 생성, file_id 결합 - chat id 반환
-    chat = create_chat_session(user_id, file, file_type, db)
+    chat_session = create_chat_session(user_id, file, file_type, db)
 
     # file(생성) 상위 file content를 chat message에 미리 등록, cf) Project -> 입력X, userstory -> project, prd 내용 등록
     # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록, cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
-    attached_info_to_chat(user_id, chat.chat_id, file, file_type, db)
+    attached_info_to_chat(user_id, chat_session.chat_id, file, file_type, db)
 
     # client채팅 추가()
-    user_chat = create_chat_message(user_id, chat.chat_id, "user", request.content_md, db)
-    return chat
+    user_chat = create_chat_message(user_id, chat_session.chat_id, "user", request.content_md, db)
+    chat_session = ChatSession(stream_url= "/api/v1/chats/" + chat_session.chat_id + "/stream")
+    return chat_session
 
 
 

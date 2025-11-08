@@ -21,6 +21,7 @@ class ChatSessionCreateRequest(ChatMessageRequest):
 
 class ChatSessionCreateResponse(BaseModel):
     chat_id: str
+    stream_url: str
     file_type: FileType
     file_id: int
     created_at: datetime

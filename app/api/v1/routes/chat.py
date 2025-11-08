@@ -5,6 +5,9 @@ from app.db.database import get_db
 from app.domain.chat import create_chat_session_with_message_service
 from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse
 
+SESSION_QUEUES: dict[str, asyncio.Queue[str]] = {}
+SESSION_TASKS: dict[str, asyncio.Task] = {}
+
 router = APIRouter(prefix="/chats", tags=["chats"])
 
 # chat 시작 & init_project 생성
@@ -12,6 +15,14 @@ router = APIRouter(prefix="/chats", tags=["chats"])
 def start_chat_with_init_file(user_id: Header(..., alias="X-User-ID"), request: ChatSessionCreateRequest, db: Session = Depends(get_db)):
     return create_chat_session_with_message_service(user_id, request, db)
 
+# SSE 연결, AI 응답 보내기
+@router.GET("chats/{chat_session_id}/stream")
+def stream_ai_message(chat_session_id: str):
+    async def event_generator():
+
+    # AI응답, chat message DB에 저장
+
+    # AI 응답 -> client
 
 
 
@@ -36,12 +47,7 @@ def start_chat_with_init_file(user_id: Header(..., alias="X-User-ID"), request: 
 #
 #     # AI로 보내기
 #
-# # SSE 연결, AI 응답 보내기
-# @router.GET(~)
-# def stream_ai_message
-#     # AI응답, chat message DB에 저장
-#
-#     # AI 응답 -> client
+
 #
 # # 채팅 종료, AI 출력 내용 문서화
 # @router.GET(~)
