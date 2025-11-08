@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session  # type: ignore
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db import models
-from sqlalchemy.orm import Session
 
 from app.schemas.mcp import (
     MCPConnectionCreate,
@@ -64,15 +63,34 @@ class MCPService:
     # ------------------------------------------------------------------
     def create_session(self, payload: MCPSessionCreate) -> MCPSessionResponse:
         """MCP 세션 생성."""
-        raise NotImplementedError
+        connection = self._get_connection(payload.connection_id)
+        if connection.status != "active":
+            raise ValidationError("비활성화된 연결에서는 세션을 생성할 수 없습니다.")
+
+        session = models.MCPSession(
+            connection_id=connection.id,
+            status="active",
+            context=self._dump_json(payload.context),
+        )
+        self.db.add(session)
+        self.db.commit()
+        self.db.refresh(session)
+        return self._to_session_response(session)
 
     def list_sessions(self, connection_id: Optional[int] = None) -> List[MCPSessionResponse]:
         """MCP 세션 목록 조회."""
-        raise NotImplementedError
+        query = self.db.query(models.MCPSession)
+        if connection_id is not None:
+            query = query.filter(models.MCPSession.connection_id == connection_id)
+        sessions = query.order_by(models.MCPSession.created_at.desc()).all()
+        return [self._to_session_response(session) for session in sessions]
 
     def close_session(self, session_id: int) -> None:
         """MCP 세션 종료."""
-        raise NotImplementedError
+        session = self._get_session(session_id)
+        session.status = "closed"
+        self.db.add(session)
+        self.db.commit()
 
     # ------------------------------------------------------------------
     # Catalog
@@ -127,6 +145,16 @@ class MCPService:
             raise NotFoundError("MCPConnection", str(connection_id))
         return connection
 
+    def _get_session(self, session_id: int) -> models.MCPSession:
+        session = (
+            self.db.query(models.MCPSession)
+            .filter(models.MCPSession.id == session_id)
+            .first()
+        )
+        if not session:
+            raise NotFoundError("MCPSession", str(session_id))
+        return session
+
     def _build_setup_commands(self, connection: models.MCPConnection) -> List[str]:
         # TODO: 실제 CLI 토큰 발급 로직 연동 필요
         return [
@@ -144,5 +172,28 @@ class MCPService:
             updated_at=connection.updated_at,
             setup_commands=self._build_setup_commands(connection),
         )
+
+    def _to_session_response(self, session: models.MCPSession) -> MCPSessionResponse:
+        return MCPSessionResponse(
+            id=session.id,
+            connection_id=session.connection_id,
+            status=session.status,
+            context=self._load_json(session.context),
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+        )
+
+    def _dump_json(self, payload: Optional[Dict[str, Any]]) -> Optional[str]:
+        if payload is None:
+            return None
+        return json.dumps(payload, ensure_ascii=False)
+
+    def _load_json(self, payload: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not payload:
+            return None
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise ValidationError(f"JSON 파싱에 실패했습니다: {exc}") from exc
 
 

@@ -48,19 +48,20 @@ def delete_connection(connection_id: int, db: Session = Depends(get_db)):
 @router.post("/sessions", response_model=MCPSessionResponse, status_code=201)
 def create_session(session: MCPSessionCreate, db: Session = Depends(get_db)):
     """MCP 세션 시작"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).create_session(session)
 
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=List[MCPSessionResponse])
 def list_sessions(connection_id: int = None, db: Session = Depends(get_db)):
     """MCP 세션 목록 조회"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return _service(db).list_sessions(connection_id=connection_id)
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
 def delete_session(session_id: int, db: Session = Depends(get_db)):
     """MCP 세션 종료"""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    _service(db).close_session(session_id)
+    return Response(status_code=204)
 
 
 # Catalog (Tools/Resources/Prompts)
