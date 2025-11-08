@@ -37,6 +37,7 @@ class Project(Base):
         id: 프로젝트 고유 ID
         project_idx: user 별 프로젝트 idx
         title: 프로젝트 제목 (VARCHAR2)
+        content_md: 내용
         status: 프로젝트 상태 (VARCHAR2 + CHECK: 'not_started','in_progress','completed')
         owner_id: 프로젝트 소유자
         created_at: 생성 시간
@@ -64,6 +65,10 @@ class Project(Base):
         String(200),
         nullable=False,
         comment="프로젝트 제목",
+    )
+    content_md = Column(
+        String,
+        comment="프로젝트 내용",
     )
     status = Column(
         String(30),
