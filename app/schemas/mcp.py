@@ -26,6 +26,8 @@ class MCPConnectionResponse(BaseModel):
     connection_type: str
     status: str = Field(..., description="연결 상태")
     created_at: datetime
+    updated_at: datetime
+    setup_commands: List[str] = Field(default_factory=list, description="연동을 위한 CLI 명령어 목록")
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +47,7 @@ class MCPSessionResponse(BaseModel):
     id: int
     connection_id: int
     status: str
+    context: Optional[dict] = Field(None, description="세션 컨텍스트")
     created_at: datetime
     updated_at: datetime
     
@@ -127,6 +130,9 @@ class MCPRunResponse(BaseModel):
         examples=["pending", "running", "completed", "failed", "cancelled"]
     )
     result: Optional[str] = Field(None, description="실행 결과")
+    arguments: Optional[dict] = Field(None, description="실행 인자")
+    progress: Optional[float] = Field(None, description="진행률 (0-1)")
+    message: Optional[str] = Field(None, description="상태 메시지")
     created_at: datetime
     updated_at: datetime
     
