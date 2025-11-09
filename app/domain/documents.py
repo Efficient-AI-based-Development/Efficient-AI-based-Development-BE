@@ -1,3 +1,7 @@
+
+
+
+
 import traceback
 from typing import List
 
@@ -20,7 +24,7 @@ def create_document_service(projectID: int, user_id: str, request: DocumentCreat
         raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
 
     existing = check_document_exist(projectID, user_id, request, db)
-    if existing is None:
+    if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document already exists"
@@ -112,7 +116,7 @@ def get_document_list_service(projectID: int, user_id:str, db: Session) -> Docum
 def check_document_exist(projectID: int, user_id: str, request: DocumentCreateRequest, db: Session) -> Document | None:
     return db.query(Document).filter(
         Document.author_id == user_id, Document.project_id == projectID, Document.type == request.type
-    ).first()
+    ).one_or_none()
 
 def get_project_by_id(project_id: int, user_id: str, db: Session) -> Project | None:
     return db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one_or_none()
@@ -121,11 +125,12 @@ def get_project_by_id(project_id: int, user_id: str, db: Session) -> Project | N
 def create_new_document_repo(projectID:int, user_id:str, request: DocumentCreateRequest, db: Session) -> Document:
     # 프로젝트 존재 검사
     data = request.model_dump()
-    data['projectID'] = projectID
+    data['project_id'] = projectID
     data['author_id'] = user_id
-
+    data['last_editor_id'] = user_id
     document = Document(**data)
     db.add(document)
+    db.flush()
     return document
 
 def get_document(projectID: int, type: str, user_id: str, db: Session) -> Document:

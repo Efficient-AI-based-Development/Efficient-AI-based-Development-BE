@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     DateTime,
     ForeignKey,
-    CheckConstraint, text,
+    CheckConstraint, text, CLOB, func, UniqueConstraint, Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -131,7 +131,7 @@ class Document(Base):
     Attributes:
         id: 문서 고유 ID
         project_id: 프로젝트 외래키
-        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'UserStory', 'SRS')
+        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'USERSTORY', 'SRS')
         title: 문서 제목
         content_md: 문서 내용 (CLOB - 긴 텍스트 저장)
         author_id: 만든 사람
@@ -169,10 +169,9 @@ class Document(Base):
     # 테이블 제약 조건 및 인덱스
     __table_args__ = (
         CheckConstraint(
-            "type IN ('PRD','USER_STORY','TRD')",
+            "type IN ('PRD','USER_STORY','SRS')",
             name='ck_documents_type'
         ),
-        UniqueConstraint('project_id', 'title', name='uq_documents_project_title'),
         Index('ix_documents_project_type', 'project_id', 'type'),
     )
 

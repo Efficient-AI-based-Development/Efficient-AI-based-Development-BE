@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 # 공통 Base
 class DocumentBase(BaseModel):
     title: str
-    type: Literal["PRD", "UserStory", "SRS"]
+    type: Literal['PRD', 'USER_STORY', 'SRS']
 
 # 요청 DTO
 class DocumentCreateRequest(DocumentBase):
@@ -17,7 +17,7 @@ class DocumentCreateRequest(DocumentBase):
 class DocumentRead(BaseModel):
     id: int
     project_id: int
-    type : Literal["PRD", "UserStory", "SRS"]
+    type : Literal['PRD', 'USER_STORY', 'SRS']
     title: str
     content_md : str | None
     created_at: datetime
