@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api/v1"
 
+    # OpenAI / MCP
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

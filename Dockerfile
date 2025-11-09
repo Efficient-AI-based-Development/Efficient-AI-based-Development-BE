@@ -27,7 +27,9 @@ RUN uv pip install --system \
     oracledb \
     pydantic \
     pydantic-settings \
-    python-multipart
+    python-multipart \
+    openai \
+    fastmcp
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim

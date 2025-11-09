@@ -58,11 +58,15 @@ cp env.example .env
 ```
 
 `.env` 파일 예시:
+
 ```env
 DATABASE_URL=oracle+oracledb://user:password@host:1521/service
 DEBUG=false
 LOG_LEVEL=INFO
 API_PREFIX=/api/v1
+# OpenAI 연동 (ChatGPT MCP용)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 ### 6. 데이터베이스 마이그레이션
@@ -124,7 +128,6 @@ uv run black app/
 uv run mypy app/
 ```
 
-
 ## 📁 프로젝트 구조
 
 ```
@@ -173,7 +176,9 @@ efficient-ai-backend/
 ```
 
 ## 📝 커밋/브랜치 규칙
+
 - Conventional Commits
+
 ```
 init: 프로젝트 초기화
 feat: 새로운 기능 추가
@@ -187,14 +192,16 @@ minor: 사소한 변경 (선택)
 ```
 
 ## 🌿브랜칭
+
 - main: 배포 브랜치
 - dev: 개발 브랜치
-- feat/*, fix/*, chore/* 분기 → PR → 리뷰 → squash merge
+- feat/_, fix/_, chore/\* 분기 → PR → 리뷰 → squash merge
 
 ## 🔐 보안
+
 - 입력 검증: **Pydantic(BaseModel)**으로 모든 요청 데이터 타입/제약 검사
 - 비밀키/DB 정보는 .env로 관리 (커밋 금지)
-“.env는 반드시 .gitignore에 포함, 공유는 .env.example로만 진행”
+  “.env는 반드시 .gitignore에 포함, 공유는 .env.example로만 진행”
 - 민감 정보 로그 출력 금지
 
 ## 📦 Docker 사용
@@ -225,12 +232,14 @@ GitHub Actions를 통해 자동화된 CI/CD 파이프라인이 설정되어 있�
 ## 📜 API 명세
 
 FastAPI 자동 생성 문서 확인:
+
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
 ### 주요 엔드포인트
 
 #### 프로젝트 (Projects)
+
 ```bash
 GET    /api/v1/projects              # 목록 조회
 POST   /api/v1/projects              # 생성
@@ -240,6 +249,7 @@ DELETE /api/v1/projects/{id}         # 삭제
 ```
 
 #### 문서 (Documents)
+
 ```bash
 POST   /api/v1/docs/{id}/rewrite     # AI 문서 수정
 POST   /api/v1/docs/{id}/rewrite/full # AI 문서 전체 수정
@@ -249,6 +259,7 @@ DELETE /api/v1/docs/{id}             # 삭제
 ```
 
 #### 태스크 (Tasks)
+
 ```bash
 POST   /api/v1/projects/{id}/tasks   # 생성
 GET    /api/v1/projects/{id}/tasks   # 목록
@@ -258,6 +269,7 @@ DELETE /api/v1/tasks/{id}            # 삭제
 ```
 
 #### MCP (Model Context Protocol)
+
 ```bash
 POST   /api/mcp/connections          # 연결 생성
 GET    /api/mcp/connections          # 연결 목록

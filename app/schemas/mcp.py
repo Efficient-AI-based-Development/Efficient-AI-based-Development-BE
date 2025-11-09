@@ -1,7 +1,7 @@
 """MCP (Model Context Protocol) related Pydantic schemas."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -129,7 +129,7 @@ class MCPRunResponse(BaseModel):
         description="실행 상태",
         examples=["pending", "running", "completed", "failed", "cancelled"]
     )
-    result: Optional[str] = Field(None, description="실행 결과")
+    result: Optional[dict[str, Any]] = Field(None, description="실행 결과")
     arguments: Optional[dict] = Field(None, description="실행 인자")
     progress: Optional[float] = Field(None, description="진행률 (0-1)")
     message: Optional[str] = Field(None, description="상태 메시지")
@@ -148,7 +148,7 @@ class MCPRunStatusResponse(BaseModel):
     status: str
     progress: Optional[float] = Field(None, description="진행률 (0-1)")
     message: Optional[str] = Field(None, description="상태 메시지")
-    result: Optional[str] = Field(None, description="현재까지의 결과")
+    result: Optional[dict[str, Any]] = Field(None, description="현재까지의 결과")
 
 
 class MCPRunListResponse(BaseModel):

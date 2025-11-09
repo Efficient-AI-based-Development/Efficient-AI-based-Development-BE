@@ -7,8 +7,10 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session  # type: ignore
 
+from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db import models
+from app.domain.mcp.providers import ChatGPTProvider
 
 from app.schemas.mcp import (
     MCPConnectionCreate,
@@ -233,6 +235,19 @@ class MCPService:
         self.db.add(run)
         self.db.commit()
         self.db.refresh(run)
+
+        try:
+            self._execute_run(session, run, payload.arguments or {})
+        except ValidationError:
+            raise
+        except Exception as exc:  # pylint: disable=broad-except
+            run.status = "failed"
+            run.message = str(exc)
+        finally:
+            self.db.add(run)
+            self.db.commit()
+            self.db.refresh(run)
+
         return self._to_run_response(run)
 
     def get_run(self, run_id: int) -> MCPRunStatusResponse:
@@ -329,12 +344,12 @@ class MCPService:
             updated_at=session.updated_at,
         )
 
-    def _dump_json(self, payload: Optional[Dict[str, Any]]) -> Optional[str]:
+    def _dump_json(self, payload: Optional[Any]) -> Optional[str]:
         if payload is None:
             return None
         return json.dumps(payload, ensure_ascii=False)
 
-    def _load_json(self, payload: Optional[str]) -> Optional[Dict[str, Any]]:
+    def _load_json(self, payload: Optional[str]) -> Optional[Any]:
         if not payload:
             return None
         try:
@@ -347,7 +362,7 @@ class MCPService:
             id=run.id,
             session_id=run.session_id,
             status=run.status,
-            result=run.result,
+            result=self._load_json(run.result),
             arguments=self._load_json(run.arguments),
             progress=self._as_float(run.progress),
             message=run.message,
@@ -361,7 +376,7 @@ class MCPService:
             status=run.status,
             progress=self._as_float(run.progress),
             message=run.message,
-            result=run.result,
+            result=self._load_json(run.result),
         )
 
     def _as_float(self, value: Optional[str]) -> Optional[float]:
@@ -388,5 +403,38 @@ class MCPService:
             return "pending"
 
         return None
+
+    def _execute_run(
+        self,
+        session: models.MCPSession,
+        run: models.MCPRun,
+        arguments: Dict[str, Any],
+    ) -> None:
+        """Execute run according to the connection type."""
+        connection_type = session.connection.connection_type
+
+        if connection_type == "chatgpt":
+            if not settings.openai_api_key:
+                raise ValidationError("ChatGPT 실행을 위해 OPENAI_API_KEY 환경 변수가 필요합니다.")
+
+            provider = ChatGPTProvider(
+                api_key=settings.openai_api_key,
+                model=settings.openai_model,
+            )
+
+            try:
+                result_payload = provider.run(arguments)
+            except ValueError as exc:
+                raise ValidationError(str(exc)) from exc
+
+            run.result = self._dump_json(result_payload)
+            run.status = "completed"
+            run.progress = "1.0"
+            run.message = "ChatGPT 응답이 생성되었습니다."
+        else:
+            run.status = "completed"
+            run.progress = "1.0"
+            run.message = "실행이 기록되었습니다. (외부 연결 미구현)"
+
 
 
