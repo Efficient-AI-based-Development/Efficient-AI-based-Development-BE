@@ -20,7 +20,7 @@ class ChatSessionCreateRequest(ChatMessageRequest):
     project_id: int | None = None
 
 class ChatSessionCreateResponse(BaseModel):
-    chat_id: str
+    chat_id: int
     stream_url: str
     file_type: FileType
     file_id: int

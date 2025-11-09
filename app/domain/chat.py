@@ -1,10 +1,28 @@
+import time
 import uuid
-from typing import Any, Tuple
+from typing import Any, Tuple, Iterator
 
 from sqlalchemy.orm import Session
 
 from app.db.models import ChatMessage, ChatSession, Project, Document, Task
 from app.schemas.chat import ChatSessionCreateRequest, FileType
+
+
+def fake_sync_llm(txt: str) -> Iterator[str]:
+    # 실제 LLM 호출 대신 토막 응답을 동기적으로 생성
+    chunks = [
+        f"안녕하세요! 요청 요약: {txt[:60]}",
+        "  → 동기 SSE 데모입니다.",
+        "  → 비동기 없이도 1인용 스트리밍은 됩니다.",
+        "  → 운영 확장성은 낮아요.",
+        "끝!"
+    ]
+    for ch in chunks:
+        # event-stream 한 프레임씩 밀어내기
+        yield f"data: {ch}\n\n"
+        time.sleep(0.2)  # 동기 대기(데모용)
+
+
 ######################################### SERVICE #############################################
 def create_chat_session_with_message_service(user_id: str, request: ChatSessionCreateRequest, db: Session):
     file, file_type = create_and_check_file_id(user_id, request, db)
@@ -29,7 +47,7 @@ def create_chat_session_with_message_service(user_id: str, request: ChatSessionC
 ######################################### REPO #############################################
 
 
-def attached_info_to_chat(user_id: str, chat_session_id: str, file: Any, file_type: str, db: Session) -> None:
+def attached_info_to_chat(user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session) -> None:
     # 문서 내용 작성
     if file.content_md is None:
         if file_type == "PROJECT":
@@ -77,7 +95,7 @@ def attached_info_to_chat(user_id: str, chat_session_id: str, file: Any, file_ty
         create_chat_message(user_id, chat_session_id, "System", srs_content_md, db)
         return None
 
-def create_chat_message(user_id: str, chat_session_id: str, role: str, content: str, db: Session) -> ChatMessage:
+def create_chat_message(user_id: str, chat_session_id: int, role: str, content: str, db: Session) -> ChatMessage:
     chat_message = ChatMessage(user_id = user_id, session_id = chat_session_id, role = role, content = content)
     chat_message = create_chat_message_repo(chat_message, db)
     db.commit()
@@ -105,9 +123,7 @@ def create_chat_session(user_id: str, file: Any, file_type:str, db: Session) -> 
 
     # 2. 문서 생성하고 내용 작성 O(수정하는 경우) -> chat session 새로 열기
     # 3. 채팅 세션 존재하지 않는 경우
-    chat_id = str(uuid.uuid4())
     chat_session = ChatSession(
-        chat_id=chat_id,
         owner_id=user_id,
         file_id=file.id,
         file_type=file_type,
