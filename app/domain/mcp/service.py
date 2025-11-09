@@ -462,7 +462,7 @@ class MCPService:
             provider_arguments = self._build_chatgpt_arguments(payload)
             result_payload = provider.run(provider_arguments)
             run.result = self._dump_json(result_payload)
-            run.status = "completed"
+            run.status = "succeeded"
             run.message = "ChatGPT 응답이 생성되었습니다."
         else:
             run.result = self._dump_json(
@@ -470,7 +470,7 @@ class MCPService:
                     "message": f"{provider_type} 실행은 아직 지원되지 않습니다.",
                 }
             )
-            run.status = "completed"
+            run.status = "succeeded"
             run.message = "외부 MCP 실행은 아직 구현되지 않았습니다."
 
         run.progress = "1.0"

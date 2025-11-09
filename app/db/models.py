@@ -543,7 +543,7 @@ class MCPSession(Base):
     status = Column(
         String(50),
         nullable=False,
-        default="active",
+        default="ready",
         comment="세션 상태",
     )
     context = Column(
@@ -575,7 +575,7 @@ class MCPSession(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('active', 'closed', 'error')",
+            "status IN ('ready', 'active', 'closed', 'error')",
             name="chk_mcp_session_status",
         ),
     )
