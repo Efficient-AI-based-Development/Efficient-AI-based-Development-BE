@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     DateTime,
     ForeignKey,
-    CheckConstraint, CLOB, func, UniqueConstraint, Index,
+    CheckConstraint, text,
 )
 from sqlalchemy.orm import relationship
 
@@ -34,10 +34,12 @@ class Project(Base):
     AI 개발 프로젝트의 기본 정보를 저장합니다.
     
     Attributes:
-        id: 프로젝트 고유 ID (IDENTITY - 자동 증가)
-        name: 프로젝트 이름 (VARCHAR2)
-        description: 프로젝트 설명 (CLOB)
-        status: 프로젝트 상태 (VARCHAR2 + CHECK: 'active', 'completed', 'archived')
+        id: 프로젝트 고유 ID
+        project_idx: user 별 프로젝트 idx
+        title: 프로젝트 제목 (VARCHAR2)
+        content_md: 내용
+        status: 프로젝트 상태 (VARCHAR2 + CHECK: 'not_started','in_progress','completed')
+        owner_id: 프로젝트 소유자
         created_at: 생성 시간
         updated_at: 수정 시간
     
@@ -52,48 +54,71 @@ class Project(Base):
     id = Column(
         Integer,
         primary_key=True,
-        autoincrement=True,
         comment="프로젝트 고유 ID",
     )
-    name = Column(
-        String(255),
+    project_idx = Column(
+        Integer,
         nullable=False,
-        comment="프로젝트 이름",
+        comment="user별 프로젝트 idx"
     )
-    description = Column(
-        Text,
-        comment="프로젝트 설명",
+    title = Column(
+        String(200),
+        nullable=False,
+        comment="프로젝트 제목",
+    )
+    content_md = Column(
+        String,
+        comment="프로젝트 내용",
     )
     status = Column(
-        String(50),
+        String(30),
         nullable=False,
-        default="active",
+        server_default=text("'in_progress'"),
         comment="프로젝트 상태",
     )
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        comment="생성 시간",
+    owner_id = Column(
+        String(120),
+        comment="프로젝트 소유자"
     )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=text("SYSTIMESTAMP"),
+        nullable=False,
+        comment="생성 시간"
+    )
+
     updated_at = Column(
         DateTime,
-        nullable=False,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         comment="수정 시간",
     )
 
     # Relationships
-    documents = relationship("Document", back_populates="project")
-    tasks = relationship("Task", back_populates="project")
-    gen_jobs = relationship("GenJob", back_populates="project")
+    documents = relationship(
+        "Document",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,  # DB에 ON DELETE CASCADE 있으면 이걸 켜면 추가 DELETE 안 날림
+    )
+    tasks = relationship(
+        "Task",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    gen_jobs = relationship(
+        "GenJob",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     # Check constraints
     __table_args__ = (
         CheckConstraint(
-            "status IN ('active', 'completed', 'archived')",
-            name="chk_project_status",
+            "status IN ('not_started','in_progress','completed')",
+            name='ck_projects_status'
         ),
     )
 
