@@ -1,29 +1,27 @@
 import asyncio
-import time
-from typing import Iterator
 
-from fastapi import APIRouter, Depends, Header, Path, HTTPException
+from fastapi import APIRouter, Header, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
 from app.db.database import get_db
-from app.db.models import ChatSession, ChatMessage
-from app.domain.chat import create_chat_session_with_message_service, ensure_worker
-from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse, ChatMessageRequest
+from app.db.models import ChatSession
+from app.domain.chat import create_chat_session_with_message_service, ensure_worker, SESSION_IN, SESSION_OUT, \
+    SESSION_TASK
+from app.schemas.chat import ChatSessionCreateResponse, ChatSessionCreateRequest, ChatMessageRequest
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
 # 세션별 in/out 큐 + 워커 태스크
-SESSION_IN = {}
-SESSION_OUT = {}
-SESSION_TASK = {}
+
 
 # chat 시작 & init_project 생성
 @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
-async def start_chat_with_init_file(user_id: Header(..., alias="X-User-ID"), request: ChatSessionCreateRequest, db: Session = Depends(get_db)):
+async def start_chat_with_init_file(request: ChatSessionCreateRequest, user_id: str = Header(..., alias="X-User-ID"),  db: Session = Depends(get_db)):
+
     resp = create_chat_session_with_message_service(user_id, request, db)
-    await ensure_worker(resp.chat_id, db)                                  # ① 워커 보장
+    await ensure_worker(user_id, resp.chat_id, db)                                  # ① 워커 보장
     await SESSION_IN[resp.chat_id].put(request.content_md)
 
     return resp

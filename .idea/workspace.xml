@@ -6,9 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="7990b474-d54f-48ef-a48e-d81154c225f8" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/chat.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/chats.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/db/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/db/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/domain/documents.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/domain/documents.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/document.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/document.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/domain/chat.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/domain/chat.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/schemas/chat.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/chat.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -18,21 +20,21 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "Pupudo"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Pupudo&quot;
   }
-}]]></component>
+}</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/Efficient-AI-based-Development/Efficient-AI-based-Development-BE.git&quot;,
     &quot;accountId&quot;: &quot;eb2f16ea-dff3-4887-a6a7-c58f100eee01&quot;
   }
 }</component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 3
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
   <component name="ProjectId" id="35Drh21h2EtBLBvmguTrW40YbGs" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -40,10 +42,11 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python.chat.executor": "Debug",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "AD-4-feature-documentpage"
+    "git-widget-placeholder": "AD-5-feat-chat"
   }
 }]]></component>
   <component name="SharedIndexes">

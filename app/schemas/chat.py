@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class FileType(str, Enum):
     project = "PROJECT"
     prd = "PRD"
-    userstory = "USERSTORY"
+    userstory = "USER_STORY"
     srs = "SRS"
     task = "TASK"
 
@@ -17,12 +17,11 @@ class ChatMessageRequest(BaseModel):
 
 class ChatSessionCreateRequest(ChatMessageRequest):
     file_type: FileType
-    project_id: int | None = None
+    project_id: int
 
 class ChatSessionCreateResponse(BaseModel):
     chat_id: int
     stream_url: str
     file_type: FileType
-    file_id: int
+    project_id: int
     created_at: datetime
-    updated_at: datetime | None = None

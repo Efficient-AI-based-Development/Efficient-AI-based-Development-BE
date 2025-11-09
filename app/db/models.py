@@ -22,7 +22,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
 
-    CheckConstraint, text, CLOB, func, UniqueConstraint, Index,
+    CheckConstraint, text, CLOB, func, UniqueConstraint, Index, TIMESTAMP,
 )
 from sqlalchemy.orm import relationship
 
@@ -193,7 +193,7 @@ class ChatSession(Base):
     file_type = Column(
         String(20),
         nullable=False,
-        comment="파일 타입 (PROJECT, PRD, USERSTORY, SRS, TASK)"
+        comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)"
     )
 
     file_id = Column(
