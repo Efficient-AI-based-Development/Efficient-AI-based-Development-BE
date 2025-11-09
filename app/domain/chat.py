@@ -8,68 +8,87 @@ from sqlalchemy.orm import Session
 from app.db.models import ChatMessage, Project, Document, ChatSession, Task
 from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse, FileType
 
-SESSION_IN = {}
-SESSION_OUT = {}
-SESSION_TASK = {}
+SESSION_IN: dict[int, asyncio.Queue[str]] = {}
+SESSION_OUT: dict[int, asyncio.Queue[str]] = {}
+SESSION_TASK: dict[int, asyncio.Task] = {}
+SESSION_CANCEL: dict[int, asyncio.Event] = {}
+
+STREAM_READY: dict[int, asyncio.Event] = {}
+
+
+# 전역 상수
+END_SENTINEL = "[[END]]"
+CANCEL_SENTINEL = "[[CANCEL]]"
+
 
 
 async def ensure_worker(user_id: str, session_id: int, db: Session):
-    if session_id in SESSION_TASK and not SESSION_TASK[session_id].done():
+    # 이미 실행 중이면 재사용
+    task = SESSION_TASK.get(session_id)
+    if task and not task.done():
         return
 
     in_q = SESSION_IN.setdefault(session_id, asyncio.Queue())
     out_q = SESSION_OUT.setdefault(session_id, asyncio.Queue())
+    cancel_ev = SESSION_CANCEL.setdefault(session_id, asyncio.Event())
 
     async def worker():
         try:
             while True:
+                # 외부에서 취소되었으면 종료
+                if cancel_ev.is_set():
+                    break
+
                 user_message = await in_q.get()
 
+                # 내부 프로토콜: [[CANCEL]] 메시지를 받으면 종료
+                if user_message == "[[CANCEL]]":
+                    break
+
                 if not isinstance(user_message, str) or not user_message.strip():
-                    # 큐에 잘못 들어온 경우는 로그로만 처리하고 skip
                     await out_q.put("[[END]]")
                     continue
 
-                try:
-                    db.add(ChatMessage(
-                        session_id=session_id,
-                        role="user",
-                        content=user_message,
-                        user_id=user_id
-                    ))
-                    _safe_commit(db)
-                except HTTPException:
-                    # 스트림은 끊지 않고 종료 신호만 보냄
-                    await out_q.put("[[END]]")
-                    continue
+                # 사용자 발화 저장
+                db.add(ChatMessage(
+                    session_id=session_id, role="user",
+                    content=user_message, user_id=user_id
+                ))
+                _safe_commit(db)
 
-                assembled = []
-                # fake ai streaming (비동기)
+                # 여기서는 가짜 스트리밍
+                assembled: list[str] = []
                 for token in ["안녕 ", "나는 ", "AI ", "야 ", "!", "\n"]:
+                    if cancel_ev.is_set():    # 스트림 도중 취소되면 즉시 중단
+                        break
                     await asyncio.sleep(0.05)
                     assembled.append(token)
                     await out_q.put(token)
 
-                # 한 턴 종료
-                await out_q.put("[[END]]")
+                await out_q.put("[[END]]")   # 턴 종료 이벤트
 
+                # 취소가 중간에 들어왔으면 저장 스킵
+                if cancel_ev.is_set():
+                    break
+
+                # 어시스턴트 전체 응답 저장
                 full_text = "".join(assembled)
-                try:
-                    db.add(ChatMessage(
-                        session_id=session_id,
-                        role="assistant",
-                        content=full_text,
-                        user_id=user_id
-                    ))
-                    _safe_commit(db)
-                except HTTPException:
-                    # 저장 실패해도 워커는 유지
-                    pass
+                db.add(ChatMessage(
+                    session_id=session_id, role="assistant",
+                    content=full_text, user_id=user_id
+                ))
+                _safe_commit(db)
 
         except asyncio.CancelledError:
-            return
+            pass
+        finally:
+            # 정리
+            cancel_ev.clear()
+            SESSION_TASK.pop(session_id, None)
 
     SESSION_TASK[session_id] = asyncio.create_task(worker())
+
+
 
 # ---------------------- 공통 유틸 ----------------------
 def _http_400(msg: str) -> HTTPException:
