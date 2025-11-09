@@ -131,8 +131,6 @@ def create_chat_session_with_message_service(user_id: str, request: ChatSessionC
     # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록, cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
     attached_info_to_chat(user_id, chat_session.id, file, file_type, db)
 
-    # client채팅 추가()
-    create_chat_message(user_id, chat_session.id, "user", request.content_md, db)
 
     return ChatSessionCreateResponse(
         chat_id=chat_session.id,
@@ -153,9 +151,7 @@ def create_chat_session_with_message_service(user_id: str, request: ChatSessionC
 def attached_info_to_chat(user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session) -> None:
     # 문서 내용 작성
     # Project 작성 시
-    project_content_md = insert_file_info_repo(user_id, file, file_type, db)
-    chatMessage = ChatMessage(session_id=chat_session_id, role="system", user_id = user_id, content=project_content_md)
-    create_chat_message_repo(chatMessage, db)
+    insert_file_info_repo(user_id, chat_session_id, file, file_type, db)
     db.commit()
 
 
@@ -173,23 +169,38 @@ def create_and_check_file_id(user_id: str, request: ChatSessionCreateRequest, db
         else:
             raise _http_400("project_id = -1 은 PROJECT 생성에만 사용할 수 있습니다. 문서/태스크는 기존 project_id가 필요합니다.")
     else: # 파일 존재 확인
+
+        # Step 1. 프로젝트 존재 여부 + 권한 체크
+        project = db.query(Project).filter(
+            Project.id == request.project_id,
+            Project.owner_id == user_id
+        ).one_or_none()
+        if project is None:
+            # 여기서 프로젝트 없으면 세션 생성 금지
+            raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
+
+
         file, file_type = check_file_exist_repo(user_id, request, db)
         # file None이면 존재하지 않는 파일 (PRD/USER_STORY/SRS/TASK) -> 파일 생성
         if file is None:
-            file, file_type = create_file_repo(user_id, request, db)
+            if request.file_type in (FileType.prd, FileType.userstory, FileType.srs):
+                file, file_type = create_file_repo(user_id, request, db)
+            elif request.file_type is FileType.task:
+                raise _http_404(f"Task(id={request.project_id}) not found.")
+            elif request.file_type is FileType.project:
+                raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
+            else:
+                raise _http_400(f"Unsupported file_type: {request.file_type}")
 
     db.commit()
     return file, file_type
 
 def create_chat_session(user_id: str, file: Any, file_type:str, db: Session) -> ChatSession:
-    if isinstance(file, Project):
-        target_file_id = file.id
-    elif isinstance(file, Document):
-        target_file_id = file.id
-    elif isinstance(file, Task):
+    if isinstance(file, (Project, Document, Task)):
         target_file_id = file.id
     else:
-        raise TypeError(f"Unsupported file type: {type(file)}")
+        raise _http_400(f"Unsupported file type for session: {type(file)}")
+
     chat_session = ChatSession(
         user_id=user_id,
         file_type=file_type,
@@ -204,54 +215,46 @@ def create_chat_session(user_id: str, file: Any, file_type:str, db: Session) -> 
 
 ######################################### REPO #############################################
 
-def insert_file_info_repo(user_id: str, file: Any, file_type: str, db: Session) -> Any:
-    parts: List[str] = []
+def insert_file_info_repo(user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session):
+    parts: list[str] = []
 
-    def _safe_append(text: Any):
-        if text:
-            parts.append(str(text))
+    def _get_doc(t: str) -> str | None:
+        d = db.query(Document).filter_by(author_id=user_id, project_id=proj_id, type=t).one_or_none()
+        return getattr(d, "content_md", None) if d else None
 
     if isinstance(file, Project):
         proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.id).one_or_none()
-        if proj is None:
-            raise NoResultFound(f"Project {getattr(file, 'id', None)} not found or no permission")
-        _safe_append(getattr(proj, "content_md", ""))
-        return "\n\n".join(parts)
-
+        if not proj:
+            raise _http_404(f"Project {file.id} not found or no permission.")
+        proj_id = proj.id
+        parts.append(proj.content_md or "")
 
     elif isinstance(file, Document):
         proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.project_id).one_or_none()
-        if proj is None:
-            raise NoResultFound(f"Project {file.project_id} not found or no permission")
-        _safe_append(getattr(proj, "content_md", ""))
-
-        PRD = db.query(Document).filter(Document.author_id == user_id, Document.project_id == file.project_id, Document.type == "PRD").one_or_none()
-        _safe_append(getattr(PRD, "content_md", ""))
-        if file_type == "PRD":
-            return "\n\n".join(parts)
-
-
-        USER_STORY = db.query(Document).filter(Document.author_id == user_id, Document.project_id == file.project_id, Document.type == "USER_STORY").one_or_none()
-        _safe_append(getattr(USER_STORY, "content_md", ""))
-        if file_type == "USER_STORY":
-            return "\n\n".join(parts)
-
-
-        SRS = db.query(Document).filter(Document.author_id == user_id, Document.project_id == file.project_id, Document.type == "SRS").one_or_none()
-        _safe_append(getattr(SRS, "content_md", ""))
-        if file_type == "SRS":
-            return "\n\n".join(parts)
+        if not proj:
+            raise _http_404(f"Project {file.project_id} not found or no permission.")
+        proj_id = proj.id
+        parts.append(proj.content_md or "")
+        parts.append(_get_doc("PRD") or "")
+        parts.append(_get_doc("USER_STORY") or "")
+        parts.append(_get_doc("SRS") or "")
 
     elif isinstance(file, Task):
-        pass
+        return  # 필요 시 태스크 컨텍스트 추가
+
+    content = "\n\n---\n".join([p for p in parts if p])
+    if content:
+        db.add(ChatMessage(session_id=chat_session_id, role="system", user_id=user_id, content=content))
+
 
 
 
 def create_chat_message_repo(chat_message: ChatMessage, db: Session) -> ChatMessage:
-    db.add(chat_message)
-    db.flush()
-    db.refresh(chat_message)
-    return chat_message
+    try:
+        db.add(chat_message)
+        return _flush_and_refresh(db, chat_message)
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create chat message: {str(e)}")
 
 
 
@@ -260,25 +263,38 @@ def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: S
 
     # type = project인 경우 project 수정임
     if request.file_type is FileType.project:
-        file = db.query(Project).filter(Project.owner_id == user_id, Project.id == request.project_id).one()
-        temp_type = "PROJECT"
+        try:
+            file = db.query(Project).filter(
+                Project.owner_id == user_id,
+                Project.id == request.project_id
+            ).one()
+            return file, "PROJECT"
+        except NoResultFound:
+            return None, "PROJECT"
 
     # type = (나머지) - db 조회를 통해서 생성/수정 알아내야함
     else:
         if request.file_type in (FileType.prd, FileType.userstory, FileType.srs):
+            doc_type = request.file_type.value.upper()
             file = (db.query(Document)
-                    .filter(Document.author_id == user_id
-                            , Document.project_id == request.project_id
-                            , Document.type == request.file_type.value.upper())
-                    .one_or_none())
-            temp_type = request.file_type.value.upper()
+                    .filter(
+                Document.author_id == user_id,
+                Document.project_id == request.project_id,
+                Document.type == doc_type
+            ).one_or_none())
+            return file, doc_type
 
         elif request.file_type is FileType.task: # task일 경우
-            file = db.query(Task).filter(Task.assignee_id == user_id, Task.id == request.project_id).one_or_none()
+            """
+                작성해야됨
+            """
+            file = None
             temp_type = "TASK"
+            return file, temp_type
 
+        else:
+            raise _http_400(f"Unsupported file_type: {request.file_type}")
 
-    return file, temp_type
 
 def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> Tuple[Any, str]:
 
@@ -288,27 +304,52 @@ def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Sessio
             owner_id=user_id,
             status="in_progress"
         )
-        temp_type = "PROJECT"
-    elif request.file_type == FileType.task: # task일 경우
-        temp_type = "TASK"
-        pass
+        try:
+            db.add(file)
+            _flush_and_refresh(db, file)
+            return file, "PROJECT"
+        except SQLAlchemyError as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create project: {str(e)}")
+
     elif request.file_type in (FileType.prd, FileType.userstory, FileType.srs):
+        if request.project_id in (-1, None):
+            raise _http_400("문서 생성에는 유효한 project_id가 필요합니다.")
         doc_type = request.file_type.value.upper()
+        # 소유 프로젝트인지 확인
+        proj = db.query(Project).filter(
+            Project.owner_id == user_id,
+            Project.id == request.project_id
+        ).one_or_none()
+        if proj is None:
+            raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
+
         file = Document(
             project_id=request.project_id,
             title=f"New {doc_type} Document",
             author_id=user_id,
             type=doc_type
         )
-        temp_type = doc_type
+        try:
+            db.add(file)
+            _flush_and_refresh(db, file)
+            return file, doc_type
+        except SQLAlchemyError as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create document: {str(e)}")
 
-    db.add(file)
-    db.flush()
-    db.refresh(file)
-    return file, temp_type
+    elif request.file_type is FileType.task:
+        # 자동생성 정책이 명확하지 않아 차단
+        raise _http_400("Task auto-creation is not supported here. Use Task API.")
+
+    else:
+        raise _http_400(f"Unsupported file_type: {request.file_type}")
+
+
 
 def store_chat_session_repo(chat: ChatSession, db: Session) -> ChatSession:
-    db.add(chat)
-    db.flush()
-    db.refresh(chat)
-    return chat
+    try:
+        db.add(chat)
+        return _flush_and_refresh(db, chat)
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create chat session: {str(e)}")

@@ -39,7 +39,7 @@ async def send_message(
         raise HTTPException(404, "chat session not found")
 
     # worker 보장
-    await ensure_worker(chat_session_id, db)
+    await ensure_worker(user_id, chat_session_id, db)
 
     # 큐에 user 메시지 삽입
     await SESSION_IN[chat_session_id].put(request.content_md)
@@ -73,7 +73,7 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
                     yield {"event": "timeout", "data": "no tokens, stream closed"}
                     break
 
-                # ✅ 3) 토큰에 따른 출력
+                # 3) 토큰에 따른 출력
                 if token == "[[END]]":
                     yield {"event": "turn_end", "data": ""}
                     continue
@@ -95,17 +95,4 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
 
 
 
-# # 프로젝트 기초 세팅
-# @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
-# def create_chat_session_update_project(user_id: str, project):
-#     # 프로젝트 기초 세팅 값 받아서 파일 수정
-#     update_init_project(user_id, request)
-#
-#     # chat messasge DB 저장
-#     store_chat_message(chat_id, request)
-#
-#     # chat -> AI보내기
-#
-#     # return 성공/실패
-#
 

@@ -127,12 +127,12 @@ class Project(Base):
 class Document(Base):
     """문서 모델
     
-    프로젝트의 문서(PRD, UserStory, SRS 등)를 저장합니다.
+    프로젝트의 문서(PRD, User_Story, SRS 등)를 저장합니다.
     
     Attributes:
         id: 문서 고유 ID
         project_id: 프로젝트 외래키
-        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'USERSTORY', 'SRS')
+        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'USER_STORY', 'SRS')
         title: 문서 제목
         content_md: 문서 내용 (CLOB - 긴 텍스트 저장)
         author_id: 만든 사람
