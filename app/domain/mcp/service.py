@@ -41,11 +41,10 @@ class MCPService:
         project_id = self._parse_project_identifier(payload.project_id)
         project = self._get_project(project_id)
 
-        provider = payload.provider_id
         connection = models.MCPConnection(
             project_id=project.id,
-            connection_type=provider,
-            status="connected" if provider == "chatgpt" else "pending",
+            connection_type=payload.provider_id,
+            status="pending",
             config=self._dump_json(payload.config),
             env=self._dump_json(payload.env),
         )
