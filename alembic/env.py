@@ -28,7 +28,6 @@ from app.db.database import Base
 from app.db.models import (  # noqa: F401
     Project,
     Document,
-    DocumentVersion,
     Task,
     TaskLink,
     GenJob,

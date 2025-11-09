@@ -470,6 +470,14 @@ class MCPConnection(Base):
         default="pending",
         comment="연결 상태",
     )
+    config = Column(
+        Text,
+        comment="연결 설정 (JSON)",
+    )
+    env = Column(
+        Text,
+        comment="연결 환경 변수 (JSON)",
+    )
     created_at = Column(
         DateTime,
         nullable=False,
@@ -542,6 +550,11 @@ class MCPSession(Base):
         Text,
         comment="세션 컨텍스트 (JSON)",
     )
+    metadata_json = Column(
+        "metadata",
+        Text,
+        comment="세션 메타데이터 (JSON)",
+    )
     created_at = Column(
         DateTime,
         nullable=False,
@@ -612,6 +625,10 @@ class MCPRun(Base):
         String(255),
         comment="프롬프트 이름",
     )
+    mode = Column(
+        String(50),
+        comment="실행 모드",
+    )
     status = Column(
         String(50),
         nullable=False,
@@ -621,6 +638,10 @@ class MCPRun(Base):
     result = Column(
         Text,
         comment="실행 결과 (CLOB)",
+    )
+    config = Column(
+        Text,
+        comment="실행 설정 (JSON)",
     )
     arguments = Column(
         Text,

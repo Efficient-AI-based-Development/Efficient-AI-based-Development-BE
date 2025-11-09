@@ -1,173 +1,195 @@
 """MCP (Model Context Protocol) related Pydantic schemas."""
 
 from datetime import datetime
-from typing import Any, List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-# Connection 관련
+# ---------------------------------------------------------------------------
+# Connection
+# ---------------------------------------------------------------------------
+
+
 class MCPConnectionCreate(BaseModel):
-    """MCP 연결 생성 요청 스키마
-    
-    POST /api/mcp/connections 요청 시 사용
-    """
-    project_id: int = Field(..., description="프로젝트 ID")
-    connection_type: str = Field(
-        default="cursor",
-        description="연결 타입",
-        examples=["cursor"]
-    )
+    provider_id: str = Field(..., alias="providerId", description="연결할 MCP 제공자 ID")
+    project_id: str = Field(..., alias="projectId", description="프로젝트 ID(문자열)")
+    config: Optional[Dict[str, Any]] = Field(default=None, description="연결 설정 값")
+    env: Optional[Dict[str, Any]] = Field(default=None, description="환경 변수")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MCPConnectionData(BaseModel):
+    connection_id: str = Field(..., alias="connectionId")
+    provider_id: str = Field(..., alias="providerId")
+    status: str
+    created_at: datetime = Field(..., alias="createdAt")
+    config: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MCPConnectionResponse(BaseModel):
-    """MCP 연결 응답 스키마"""
-    id: int
-    project_id: int
-    connection_type: str
-    status: str = Field(..., description="연결 상태")
-    created_at: datetime
-    updated_at: datetime
-    setup_commands: List[str] = Field(default_factory=list, description="연동을 위한 CLI 명령어 목록")
-    
-    model_config = ConfigDict(from_attributes=True)
+    data: MCPConnectionData
 
 
-# Session 관련
+class MCPConnectionListResponse(BaseModel):
+    data: List[MCPConnectionData]
+
+
+class MCPConnectionCloseResponse(BaseModel):
+    data: Dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# Session
+# ---------------------------------------------------------------------------
+
+
 class MCPSessionCreate(BaseModel):
-    """MCP 세션 시작 요청 스키마
-    
-    POST /api/mcp/sessions 요청 시 사용
-    """
-    connection_id: int = Field(..., description="연결 ID")
-    context: Optional[dict] = Field(None, description="세션 컨텍스트")
+    connection_id: str = Field(..., alias="connectionId")
+    project_id: str = Field(..., alias="projectId")
+    metadata: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MCPSessionData(BaseModel):
+    session_id: str = Field(..., alias="sessionId")
+    connection_id: str = Field(..., alias="connectionId")
+    status: str
+    created_at: datetime = Field(..., alias="createdAt")
+    metadata: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MCPSessionResponse(BaseModel):
-    """MCP 세션 응답 스키마"""
-    id: int
-    connection_id: int
-    status: str
-    context: Optional[dict] = Field(None, description="세션 컨텍스트")
-    created_at: datetime
-    updated_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
+    data: MCPSessionData
 
 
-# Tool 관련
-class MCPToolResponse(BaseModel):
-    """MCP 툴 응답 스키마
-    
-    GET /api/mcp/tools?sessionId=... 응답 시 사용
-    """
+class MCPSessionListResponse(BaseModel):
+    data: List[MCPSessionData]
+
+
+class MCPSessionCloseResponse(BaseModel):
+    data: Dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# Catalog (Tools / Resources / Prompts)
+# ---------------------------------------------------------------------------
+
+
+class MCPToolItem(BaseModel):
+    tool_id: str = Field(..., alias="toolId")
     name: str
-    description: str
-    parameters: Optional[dict] = Field(None, description="툴 파라미터")
+    description: Optional[str] = None
+    input_schema: Optional[Dict[str, Any]] = Field(default=None, alias="inputSchema")
+    output_schema: Optional[Dict[str, Any]] = Field(default=None, alias="outputSchema")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MCPToolListResponse(BaseModel):
-    """MCP 툴 목록 응답 스키마"""
-    items: List[MCPToolResponse]
-    total: int
+    data: List[MCPToolItem]
 
 
-# Resource 관련
-class MCPResourceResponse(BaseModel):
-    """MCP 리소스 응답 스키마
-    
-    GET /api/mcp/resources?sessionId=... 응답 시 사용
-    """
+class MCPResourceItem(BaseModel):
     uri: str
-    name: str
-    description: Optional[str]
+    kind: str
+    description: Optional[str] = None
 
 
 class MCPResourceListResponse(BaseModel):
-    """MCP 리소스 목록 응답 스키마"""
-    items: List[MCPResourceResponse]
-    total: int
+    data: List[MCPResourceItem]
 
 
-# Prompt 관련
-class MCPPromptResponse(BaseModel):
-    """MCP 프롬프트 응답 스키마
-    
-    GET /api/mcp/prompts?sessionId=... 응답 시 사용
-    """
+class MCPPromptItem(BaseModel):
+    prompt_id: str = Field(..., alias="promptId")
     name: str
-    description: str
-    arguments: Optional[list] = Field(None, description="프롬프트 인자")
+    description: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MCPPromptListResponse(BaseModel):
-    """MCP 프롬프트 목록 응답 스키마"""
-    items: List[MCPPromptResponse]
-    total: int
+    data: List[MCPPromptItem]
 
 
-# Run 관련
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
+
+
 class MCPRunCreate(BaseModel):
-    """MCP 실행 생성 요청 스키마
-    
-    POST /api/mcp/runs 요청 시 사용
-    """
-    session_id: int = Field(..., description="세션 ID")
-    tool_name: Optional[str] = Field(None, description="툴 이름")
-    prompt_name: Optional[str] = Field(None, description="프롬프트 이름")
-    arguments: Optional[dict] = Field(None, description="실행 인자")
+    session_id: str = Field(..., alias="sessionId")
+    mode: str = Field("chat", description="실행 모드 (tool/chat/prompt)")
+    tool_id: Optional[str] = Field(default=None, alias="toolId")
+    prompt_id: Optional[str] = Field(default=None, alias="promptId")
+    config: Optional[Dict[str, Any]] = None
+    input: Dict[str, Any]
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MCPRunData(BaseModel):
+    run_id: str = Field(..., alias="runId")
+    session_id: str = Field(..., alias="sessionId")
+    mode: Optional[str] = None
+    status: str
+    created_at: datetime = Field(..., alias="createdAt")
+    updated_at: datetime = Field(..., alias="updatedAt")
+    result: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MCPRunResponse(BaseModel):
-    """MCP 실행 응답 스키마
-    
-    GET /api/mcp/runs/{runld} 응답 시 사용
-    """
-    id: int
-    session_id: int
-    status: str = Field(
-        ...,
-        description="실행 상태",
-        examples=["pending", "running", "completed", "failed", "cancelled"]
-    )
-    result: Optional[dict[str, Any]] = Field(None, description="실행 결과")
-    arguments: Optional[dict] = Field(None, description="실행 인자")
-    progress: Optional[float] = Field(None, description="진행률 (0-1)")
-    message: Optional[str] = Field(None, description="상태 메시지")
-    created_at: datetime
-    updated_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
+    data: MCPRunData
+
+
+class MCPRunStatusData(BaseModel):
+    run_id: str = Field(..., alias="runId")
+    status: str
+    result: Optional[Dict[str, Any]] = None
+    message: Optional[str] = None
+    output: Optional[Dict[str, Any]] = None
+    started_at: Optional[datetime] = Field(default=None, alias="startedAt")
+    finished_at: Optional[datetime] = Field(default=None, alias="finishedAt")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MCPRunStatusResponse(BaseModel):
-    """MCP 실행 상태 응답 스키마
-    
-    GET /api/mcp/runs/{runld} 상태 조회 시 사용
-    """
-    id: int
-    status: str
-    progress: Optional[float] = Field(None, description="진행률 (0-1)")
-    message: Optional[str] = Field(None, description="상태 메시지")
-    result: Optional[dict[str, Any]] = Field(None, description="현재까지의 결과")
+    data: MCPRunStatusData
 
 
-class MCPRunListResponse(BaseModel):
-    """MCP 실행 목록 응답 스키마"""
-    items: List[MCPRunResponse]
-    total: int
+class MCPRunCancelResponse(BaseModel):
+    data: Dict[str, Any]
 
 
-class MCPProjectStatusResponse(BaseModel):
-    """프로젝트별 MCP 상태 응답 스키마"""
+class MCPRunEventsResponse(BaseModel):
+    data: List[Dict[str, Any]]
 
+
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
+
+
+class MCPProjectStatusItem(BaseModel):
     id: str = Field(..., description="프로젝트 ID")
     name: str = Field(..., description="프로젝트 이름")
     mcp_status: Optional[str] = Field(
         None,
         alias="mcpStatus",
         description="MCP 연결 상태 (connected, pending, null)",
-        examples=["connected", "pending", None],
     )
 
     model_config = ConfigDict(populate_by_name=True)
 
+
+class MCPProjectStatusResponse(BaseModel):
+    data: List[MCPProjectStatusItem]
