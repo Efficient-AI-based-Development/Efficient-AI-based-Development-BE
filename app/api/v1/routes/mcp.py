@@ -10,6 +10,7 @@ from app.domain.mcp import MCPService
 from app.schemas.mcp import (
     MCPConnectionCreate,
     MCPConnectionResponse,
+    MCPProjectStatusResponse,
     MCPSessionCreate,
     MCPSessionResponse,
     MCPRunCreate,
@@ -22,6 +23,13 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 
 def _service(db: Session) -> MCPService:
     return MCPService(db)
+
+
+# Project summary
+@router.get("/projects", response_model=List[MCPProjectStatusResponse])
+def list_project_statuses(db: Session = Depends(get_db)):
+    """프로젝트별 MCP 상태 조회"""
+    return _service(db).list_project_statuses()
 
 
 # Connections

@@ -15,7 +15,7 @@
 """
 
 from datetime import datetime
-from sqlalchemy import (
+from sqlalchemy import (  # type: ignore
     Column,
     Integer,
     String,
@@ -24,7 +24,7 @@ from sqlalchemy import (
     ForeignKey,
     CheckConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship  # type: ignore
 
 from app.db.database import Base
 
@@ -505,7 +505,7 @@ class MCPConnection(Base):
     status = Column(
         String(50),
         nullable=False,
-        default="active",
+        default="pending",
         comment="연결 상태",
     )
     created_at = Column(
@@ -532,7 +532,7 @@ class MCPConnection(Base):
             name="chk_mcp_connection_type",
         ),
         CheckConstraint(
-            "status IN ('active', 'inactive', 'error')",
+            "status IN ('pending', 'active', 'inactive', 'error')",
             name="chk_mcp_connection_status",
         ),
     )

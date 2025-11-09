@@ -156,3 +156,18 @@ class MCPRunListResponse(BaseModel):
     items: List[MCPRunResponse]
     total: int
 
+
+class MCPProjectStatusResponse(BaseModel):
+    """프로젝트별 MCP 상태 응답 스키마"""
+
+    id: str = Field(..., description="프로젝트 ID")
+    name: str = Field(..., description="프로젝트 이름")
+    mcp_status: Optional[str] = Field(
+        None,
+        alias="mcpStatus",
+        description="MCP 연결 상태 (connected, pending, null)",
+        examples=["connected", "pending", None],
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+

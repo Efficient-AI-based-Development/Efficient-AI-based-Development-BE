@@ -13,6 +13,7 @@ from app.db import models
 from app.schemas.mcp import (
     MCPConnectionCreate,
     MCPConnectionResponse,
+    MCPProjectStatusResponse,
     MCPRunCreate,
     MCPRunResponse,
     MCPRunStatusResponse,
@@ -36,7 +37,7 @@ class MCPService:
         connection = models.MCPConnection(
             project_id=project.id,
             connection_type=payload.connection_type,
-            status="active",
+            status="pending",
         )
         self.db.add(connection)
         self.db.commit()
@@ -193,6 +194,24 @@ class MCPService:
         connection_type = session.connection.connection_type
         prompts = self._PROMPT_REGISTRY.get(connection_type, [])
         return {"items": prompts, "total": len(prompts)}
+
+    # ------------------------------------------------------------------
+    # Project status
+    # ------------------------------------------------------------------
+    def list_project_statuses(self) -> List[MCPProjectStatusResponse]:
+        """프로젝트별 MCP 상태 요약."""
+        projects = self.db.query(models.Project).all()
+        results: List[MCPProjectStatusResponse] = []
+        for project in projects:
+            status = self._resolve_project_status(project.mcp_connections)
+            results.append(
+                MCPProjectStatusResponse(
+                    id=str(project.id),
+                    name=project.name,
+                    mcpStatus=status,
+                )
+            )
+        return results
 
     # ------------------------------------------------------------------
     # Run
@@ -352,5 +371,22 @@ class MCPService:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    def _resolve_project_status(
+        self, connections: List[models.MCPConnection]
+    ) -> Optional[str]:
+        if not connections:
+            return None
+
+        if any(conn.status == "active" for conn in connections):
+            return "connected"
+
+        if any(conn.status == "pending" for conn in connections):
+            return "pending"
+
+        if any(conn.status == "error" for conn in connections):
+            return "pending"
+
+        return None
 
 
