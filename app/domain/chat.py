@@ -1,26 +1,57 @@
+import asyncio
 import time
 import uuid
 from typing import Any, Tuple, Iterator
 
 from sqlalchemy.orm import Session
 
+from app.api.v1.routes.chat import SESSION_TASK, SESSION_IN, SESSION_OUT
 from app.db.models import ChatMessage, ChatSession, Project, Document, Task
 from app.schemas.chat import ChatSessionCreateRequest, FileType
 
 
-def fake_sync_llm(txt: str) -> Iterator[str]:
-    # 실제 LLM 호출 대신 토막 응답을 동기적으로 생성
-    chunks = [
-        f"안녕하세요! 요청 요약: {txt[:60]}",
-        "  → 동기 SSE 데모입니다.",
-        "  → 비동기 없이도 1인용 스트리밍은 됩니다.",
-        "  → 운영 확장성은 낮아요.",
-        "끝!"
-    ]
-    for ch in chunks:
-        # event-stream 한 프레임씩 밀어내기
-        yield f"data: {ch}\n\n"
-        time.sleep(0.2)  # 동기 대기(데모용)
+async def ensure_worker(session_id: int, db: Session):
+    if session_id in SESSION_TASK and not SESSION_TASK[session_id].done():
+        return
+
+    in_q = SESSION_IN.setdefault(session_id, asyncio.Queue())
+    out_q = SESSION_OUT.setdefault(session_id, asyncio.Queue())
+
+    async def worker():
+        try:
+            while True:
+                user_message = await in_q.get()
+
+                # DB 저장
+                db.add(ChatMessage(
+                    session_id=session_id,
+                    role="user",
+                    content=user_message,
+                    user_id="demo"
+                ))
+                db.commit()
+                assembled = []
+                # fake ai streaming (비동기)
+                for token in ["안녕 ", "나는 ", "AI ", "야 ", "!", "\n"]:
+                    await asyncio.sleep(0.05)
+                    assembled.append(token)
+                    await out_q.put(token)
+
+                # 한 턴 종료
+                await out_q.put("[[END]]")
+
+                full_text = "".join(assembled)
+                db.add(ChatMessage(
+                    session_id=session_id,
+                    role="assistant",
+                    content=full_text,
+                ))
+                db.commit()
+        except asyncio.CancelledError:
+            return
+
+    SESSION_TASK[session_id] = asyncio.create_task(worker())
+
 
 
 ######################################### SERVICE #############################################
@@ -36,6 +67,7 @@ def create_chat_session_with_message_service(user_id: str, request: ChatSessionC
 
     # client채팅 추가()
     user_chat = create_chat_message(user_id, chat_session.chat_id, "user", request.content_md, db)
+
     chat_session = ChatSession(stream_url= "/api/v1/chats/" + chat_session.chat_id + "/stream")
     return chat_session
 

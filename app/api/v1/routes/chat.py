@@ -1,83 +1,98 @@
+import asyncio
 import time
 from typing import Iterator
 
 from fastapi import APIRouter, Depends, Header, Path, HTTPException
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
+from starlette.requests import Request
 
 from app.db.database import get_db
 from app.db.models import ChatSession, ChatMessage
-from app.domain.chat import create_chat_session_with_message_service, fake_sync_llm
+from app.domain.chat import create_chat_session_with_message_service, ensure_worker
 from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse, ChatMessageRequest
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
+# 세션별 in/out 큐 + 워커 태스크
+SESSION_IN = {}
+SESSION_OUT = {}
+SESSION_TASK = {}
+
 # chat 시작 & init_project 생성
 @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
-def start_chat_with_init_file(user_id: Header(..., alias="X-User-ID"), request: ChatSessionCreateRequest, db: Session = Depends(get_db)):
-    return create_chat_session_with_message_service(user_id, request, db)
+async def start_chat_with_init_file(user_id: Header(..., alias="X-User-ID"), request: ChatSessionCreateRequest, db: Session = Depends(get_db)):
+    resp = create_chat_session_with_message_service(user_id, request, db)
+    await ensure_worker(resp.chat_id, db)                                  # ① 워커 보장
+    await SESSION_IN[resp.chat_id].put(request.content_md)
+
+    return resp
 
 @router.post("/{chat_session_id}/messages")
-def save_user_message(
+async def send_message(
     chat_session_id: int,
     request: ChatMessageRequest,
-    user_id : str = Header(..., alias="X-User-ID"),
+    user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    sess = db.query(ChatSession).filter(ChatSession.id == chat_session_id).one_or_none()
+
+    sess = db.query(ChatSession).filter(ChatSession.user_id == user_id, ChatSession.id == chat_session_id).one_or_none()
     if not sess:
         raise HTTPException(404, "chat session not found")
 
-    msg = ChatMessage(
-        session_id=sess.id,
-        role="user",
-        user_id=user_id,
-        content=request.content_md,
-    )
-    db.add(msg)
-    db.refresh(msg)
-    db.commit()
-    return msg
+    # worker 보장
+    await ensure_worker(chat_session_id, db)
+
+    # 큐에 user 메시지 삽입
+    await SESSION_IN[chat_session_id].put(request.content_md)
+
+    return {"ok": True}
+
 
 # SSE 연결, AI 응답 보내기
 @router.get("/{chat_session_id}/stream")
-def stream_sse(
-    chat_session_id: int = Path(...),
-    db: Session = Depends(get_db),
-):
+async def stream(chat_session_id: int, request: Request, db: Session = Depends(get_db)):
+
     sess = db.query(ChatSession).filter(ChatSession.id == chat_session_id).one_or_none()
     if not sess:
         raise HTTPException(404, "chat session not found")
 
-    # 가장 최근 user 메시지 하나를 가져와 응답 생성(데모)
-    last_user = (
-        db.query(ChatMessage)
-        .filter(ChatMessage.session_id == sess.id, ChatMessage.role == "user")
-        .order_by(ChatMessage.id.desc())
-        .first()
-    )
-    prompt = last_user.content if last_user else "(empty)"
+    out_q = SESSION_OUT.setdefault(chat_session_id, asyncio.Queue())
 
-    # 4) EventSourceResponse 반환
-    #    - ping으로 keep-alive(프록시 타임아웃 방지)
-    #    - media_type은 text/event-stream 고정
-    #    - 동기 제너레이터도 동작함
-    resp = EventSourceResponse(
-        gen,
-        ping=15,
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache"},
-    )
+    TIMEOUT = 300
 
-    # 최종 전체 본문 저장(옵션)
-    full_text = " ".join([
-        "안녕하세요!", "동기 SSE 데모 응답입니다.", f"(요약:{prompt[:60]})"
-    ])
-    # 응답을 DB에 저장
-    db.add(ChatMessage(session_id=sess.id, role="assistant", content=full_text))
-    db.commit()
+    async def event_gen():
+        try:
+            while True:
 
-    return EventSourceResponse(fake_sync_llm(prompt))
+                if await request.is_disconnected():
+                    print("client closed")
+                    break
+
+                try:
+                    token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
+                except asyncio.TimeoutError:
+                    yield {"event": "timeout", "data": "no tokens, stream closed"}
+                    break
+
+                # ✅ 3) 토큰에 따른 출력
+                if token == "[[END]]":
+                    yield {"event": "turn_end", "data": ""}
+                    continue
+                else:
+                    yield {"event": "delta", "data": token}
+
+        except asyncio.CancelledError:
+            pass
+
+        finally:
+            task = SESSION_TASK.get(chat_session_id)
+            if task:
+                task.cancel()
+            print(f"stream closed for session {chat_session_id}")
+
+    return EventSourceResponse(event_gen(), ping=15000)
+
 
 
 
@@ -95,15 +110,4 @@ def stream_sse(
 #
 #     # return 성공/실패
 #
-# # 채팅 보내기
-# @router.post(~)
-# def receive_user_message(chat_id, project):
-#     # 채팅 저장하기
-#
-#     # AI로 보내기
-#
 
-#
-# # 채팅 종료, AI 출력 내용 문서화
-# @router.GET(~)
-# def chat_close_documentation()
