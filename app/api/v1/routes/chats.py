@@ -89,18 +89,24 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
                     yield {"event": "turn_end", "data": ""}
                     break
 
-                yield {"event": "delta", "data": token}
+                yield {"event": "assistant", "data": token}
 
         finally:
-            task = SESSION_TASK.get(chat_session_id)
-            if task:
-                task.cancel()
+            pass
 
     return EventSourceResponse(event_gen(), ping=15000)
 
 
 @router.post("/{chat_session_id}/cancel", status_code=202)
-async def cancel_session(chat_session_id: int):
+async def cancel_session(chat_session_id: int, user_id: str = Header(...,alias="X-User-ID"), db: Session = Depends(get_db)):
+    session = db.query(ChatSession).filter(
+        ChatSession.id == chat_session_id,
+        ChatSession.user_id == user_id
+    ).first()
+
+    if session is None:
+        # 네 스타일 기준 -> 404 사용
+        raise HTTPException(404, "chat session not found or no permission")
     cancel_ev = SESSION_CANCEL.setdefault(chat_session_id, asyncio.Event())
 
     # 이미 취소 상태면 재진입 방지
