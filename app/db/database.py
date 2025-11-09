@@ -8,7 +8,7 @@ from app.core.config import settings
 # 데이터베이스 URL에 따라 엔진 설정
 # SQLite (로컬 개발용): sqlite:///./local.db
 # Oracle (프로덕션): oracle+oracledb://user:password@host:1521/service
-database_url = settings.database_url
+database_url = settings.get_database_url
 
 if database_url.startswith("sqlite"):
     # SQLite 설정 (로컬 개발용)

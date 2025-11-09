@@ -59,8 +59,9 @@ target_metadata = Base.metadata
 def get_database_url():
     """환경 변수에서 데이터베이스 URL 가져오기"""
     # alembic.ini의 sqlalchemy.url을 설정 파일의 값으로 덮어씀
-    config.set_main_option("sqlalchemy.url", settings.database_url)
-    return settings.database_url
+    db_url = settings.get_database_url
+    config.set_main_option("sqlalchemy.url", db_url)
+    return db_url
 
 
 def run_migrations_offline() -> None:
@@ -96,7 +97,7 @@ def run_migrations_online() -> None:
     """
     # 연결 URL 설정
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = settings.database_url
+    configuration["sqlalchemy.url"] = settings.get_database_url
 
     connectable = engine_from_config(
         configuration,

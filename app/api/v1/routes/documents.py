@@ -1,70 +1,31 @@
 """Document API routes."""
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.document import (
-    DocumentCreate,
-    DocumentUpdate,
-    DocumentResponse,
-    DocumentListResponse,
-)
+from app.domain.documents import create_document_service, get_document_service, update_project_service, \
+    get_document_list_service
+from app.schemas.document import DocumentRead, DocumentCreateRequest, DocumentUpdateRequest, DocumentPage
 
-router = APIRouter(prefix="/docs", tags=["documents"])
+router = APIRouter(prefix="", tags=["documents"])
 
 
-@router.post("/{doc_id}/rewrite", status_code=200)
-def rewrite_document_content(doc_id: int, db: Session = Depends(get_db)):
-    """AI로 문서 내용 수정
-    
-    PATCH /api/docs/{docID}/ai/rewrite
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
+@router.post("/projects/{projectID}/", response_model=DocumentRead, status_code=201)
+def create_document(projectID: int, request: DocumentCreateRequest, user_id: str = Header(..., alias = "X-User-ID"), db: Session = Depends(get_db)):
+    return create_document_service(projectID, user_id, request,  db)
+
+@router.get("/projects/{projectID}/docs/{type}", response_model=DocumentRead, status_code=200)
+def get_document(projectID: int, type: str, user_id: str = Header(..., alias = "X-User-ID"), db: Session = Depends(get_db)):
+    return get_document_service(projectID, type, user_id, db)
+
+@router.patch("/projects/{projectID}/docs/{type}", response_model=DocumentRead, status_code=200)
+def update_document(projectID: int, type: str, request: DocumentUpdateRequest, user_id: str = Header(..., alias = "X-User-ID"), db: Session = Depends(get_db)):
+    return update_project_service(projectID, type, user_id, request,  db)
+
+@router.get("/projects/{projectID}/docs", response_model=DocumentPage, status_code=200)
+def get_document_list(projectID: int, user_id: str = Header(..., alias = "X-User-ID"), db: Session = Depends(get_db)):
+    return get_document_list_service(projectID, user_id, db)
 
 
-@router.post("/{doc_id}/rewrite/full", status_code=200)
-def rewrite_full_document(doc_id: int, db: Session = Depends(get_db)):
-    """AI로 문서 전체 수정
-    
-    PATCH /api/docs/{docID}/ai/rewrite/full
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
-
-
-@router.get("/{doc_id}", response_model=DocumentResponse)
-def get_document(doc_id: int, db: Session = Depends(get_db)):
-    """문서 조회
-    
-    GET /api/docs/{docID}
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
-
-
-@router.patch("/{doc_id}", response_model=DocumentResponse)
-def update_document(
-    doc_id: int,
-    document: DocumentUpdate,
-    db: Session = Depends(get_db)
-):
-    """문서 수정
-    
-    PATCH /api/docs/{docID}
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
-
-
-@router.delete("/{doc_id}", status_code=204)
-def delete_document(doc_id: int, db: Session = Depends(get_db)):
-    """문서 삭제
-    
-    DELETE /api/docs/{docID}
-    """
-    # TODO: 실제 구현 필요
-    raise HTTPException(status_code=501, detail="Not implemented")
 
