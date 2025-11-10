@@ -72,7 +72,8 @@ def list_project_statuses(db: Session = Depends(get_db)):
         "### 동작\n"
         "1. 연결 레코드를 생성하고 상태를 `pending` 으로 설정\n"
         "2. 응답에는 외부에서 사용할 `connectionId` (`cn_0001` 형태)가 포함됩니다.\n"
-        "3. 이후 세션 생성 API에서 해당 ID를 사용합니다."
+        "3. 활성화가 필요하면 `POST /mcp/connections/{connectionId}/activate` 를 호출해 `active` 로 전환합니다.\n"
+        "4. 이후 세션 생성 API에서 해당 ID를 사용합니다."
     ),
 )
 def create_connection(connection: MCPConnectionCreate, db: Session = Depends(get_db)):
@@ -119,6 +120,28 @@ def list_connections(
 )
 def delete_connection(connection_id: str, db: Session = Depends(get_db)):
     data = _service(db).deactivate_connection(connection_id)
+    return {"data": data}
+
+
+@router.post(
+    "/connections/{connection_id}/activate",
+    response_model=MCPConnectionResponse,
+    status_code=200,
+    summary="연결 활성화",
+    description=(
+        "대기(`pending`) 상태의 MCP 연결을 활성화(`active`)로 전환합니다.\n\n"
+        "### 사용 예시\n"
+        "1. `POST /mcp/connections` 로 연결 생성 → `pending` 상태\n"
+        "2. 필요한 환경 변수/설정을 적용\n"
+        "3. 이 엔드포인트를 호출해 `active` 상태로 변경\n\n"
+        "### 경로 파라미터\n"
+        "- `connection_id`: `cn_0001` 형태의 연결 ID\n\n"
+        "### 응답\n"
+        "- 갱신된 연결 정보 (`status` 필드는 `connected` 로 매핑됩니다)"
+    ),
+)
+def activate_connection(connection_id: str, db: Session = Depends(get_db)):
+    data = _service(db).activate_connection(connection_id)
     return {"data": data}
 
 

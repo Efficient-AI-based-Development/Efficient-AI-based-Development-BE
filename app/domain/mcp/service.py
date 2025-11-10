@@ -75,6 +75,16 @@ class MCPService:
             "connectionId": external_connection_id,
         }
 
+    def activate_connection(self, external_connection_id: str) -> MCPConnectionData:
+        """MCP 연결 활성화."""
+        connection_id = self._decode_connection_id(external_connection_id, prefix="cn")
+        connection = self._get_connection(connection_id)
+        connection.status = "active"
+        self.db.add(connection)
+        self.db.commit()
+        self.db.refresh(connection)
+        return self._to_connection_data(connection)
+
     # ------------------------------------------------------------------
     # Session
     # ------------------------------------------------------------------
