@@ -26,6 +26,10 @@ class ChatSessionCreateResponse(BaseModel):
     project_id: int
     created_at: datetime
 
+class StoreFileRequest(BaseModel):
+    project_id: int
+
+
 class StoreFileResponse(BaseModel):
     ok: bool
     file_type: str
