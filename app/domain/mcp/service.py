@@ -24,6 +24,10 @@ from app.schemas.mcp import (
     MCPPromptItem,
     MCPSessionCreate,
     MCPSessionData,
+    MCPGuideResponse,
+    MCPGuidePlatform,
+    MCPGuideStep,
+    MCPGuideCommand,
 )
 
 
@@ -343,6 +347,87 @@ class MCPService:
                 }
             )
         return events
+
+    # ------------------------------------------------------------------
+    # Guide
+    # ------------------------------------------------------------------
+
+    _GUIDES: Dict[str, MCPGuideResponse] = {
+        "chatgpt": MCPGuideResponse(
+            provider_id="chatgpt",
+            provider_name="ChatGPT MCP",
+            supported_agents=["Cursor", "Claude Code", "Codex CLI"],
+            prerequisites=[
+                "Node.js 20 이상 설치",
+                "OpenAI API Key 준비",
+            ],
+            platforms=[
+                MCPGuidePlatform(
+                    os="macOS",
+                    steps=[
+                        MCPGuideStep(
+                            title="1. MCP 서버 연결하기",
+                            description=" fastmcp CLI를 설치하고 로그인합니다. 계정당 한 번만 실행하면 됩니다.",
+                            commands=[
+                                MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                                MCPGuideCommand(text="fastmcp login --api-key <OPENAI_API_KEY>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="2. 내 프로젝트 연동하기",
+                            description="프로젝트 루트에서 fastmcp 프로젝트 설정을 생성합니다.",
+                            commands=[
+                                MCPGuideCommand(text="cd /path/to/project"),
+                                MCPGuideCommand(text="fastmcp init --provider chatgpt --project <PROJECT_ID>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="3. 에이전트에서 실행",
+                            description="에이전트 터미널(예: Cursor 커맨드 팔레트)에서 아래 명령을 실행하면 작업을 진행할 수 있습니다.",
+                            commands=[
+                                MCPGuideCommand(text="fastmcp run --project <PROJECT_ID>"),
+                            ],
+                        ),
+                    ],
+                ),
+                MCPGuidePlatform(
+                    os="Windows",
+                    steps=[
+                        MCPGuideStep(
+                            title="1. MCP 서버 연결하기",
+                            description="PowerShell에서 실행하세요. Node.js와 npm이 설치되어 있어야 합니다.",
+                            commands=[
+                                MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                                MCPGuideCommand(text="fastmcp login --api-key <OPENAI_API_KEY>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="2. 프로젝트 연동하기",
+                            description="PowerShell에서 프로젝트 디렉토리로 이동 후 초기화합니다.",
+                            commands=[
+                                MCPGuideCommand(text="cd C:\\path\\to\\project"),
+                                MCPGuideCommand(text="fastmcp init --provider chatgpt --project <PROJECT_ID>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="3. 명령 실행하기",
+                            description="에이전트에서 아래 명령을 실행하거나 버튼을 눌러 작업을 시작합니다.",
+                            commands=[
+                                MCPGuideCommand(text="fastmcp run --project <PROJECT_ID>"),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+    }
+
+    def get_guide(self, provider_id: str) -> MCPGuideResponse:
+        """에이전트 연동 가이드 조회."""
+        guide = self._GUIDES.get(provider_id)
+        if not guide:
+            raise NotFoundError("MCPGuide", provider_id)
+        return guide
 
     # ------------------------------------------------------------------
     # Helpers

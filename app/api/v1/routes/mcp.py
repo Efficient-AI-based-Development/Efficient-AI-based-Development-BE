@@ -25,6 +25,7 @@ from app.schemas.mcp import (
     MCPToolListResponse,
     MCPResourceListResponse,
     MCPPromptListResponse,
+    MCPGuideResponse,
 )
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
@@ -143,6 +144,26 @@ def delete_connection(connection_id: str, db: Session = Depends(get_db)):
 def activate_connection(connection_id: str, db: Session = Depends(get_db)):
     data = _service(db).activate_connection(connection_id)
     return {"data": data}
+
+
+@router.get(
+    "/providers/{provider_id}/guide",
+    response_model=MCPGuideResponse,
+    summary="MCP 연동 가이드 조회",
+    description=(
+        "선택한 MCP 제공자를 fastMCP/에이전트에 연결하는 방법을 안내합니다.\n\n"
+        "### 경로 파라미터\n"
+        "- `provider_id`: `chatgpt`, `claude`, `cursor` 등 제공자 ID\n\n"
+        "### 응답 구조\n"
+        "- `supportedAgents`: 지원되는 에이전트 목록 (예: Cursor, Claude Code)\n"
+        "- `prerequisites`: 사전 준비 사항 (Node.js 버전, API Key 등)\n"
+        "- `platforms`: 운영체제별 단계별 명령어와 설명\n\n"
+        "프런트에서는 이 데이터를 기반으로 모달/가이드를 렌더링할 수 있습니다."
+    ),
+)
+def get_provider_guide(provider_id: str, db: Session = Depends(get_db)):
+    data = _service(db).get_guide(provider_id)
+    return data
 
 
 # Sessions
