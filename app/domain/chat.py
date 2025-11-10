@@ -1,12 +1,12 @@
 import asyncio
-from typing import Any, Tuple, Iterator, List
+from typing import Any, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.exc import NoResultFound, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.models import ChatMessage, Project, Document, ChatSession, Task
-from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse, FileType
+from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse, FileType, StoreFileResponse
 
 SESSION_IN: dict[int, asyncio.Queue[str]] = {}
 SESSION_OUT: dict[int, asyncio.Queue[str]] = {}
@@ -21,7 +21,7 @@ END_SENTINEL = "[[END]]"
 CANCEL_SENTINEL = "[[CANCEL]]"
 
 
-
+# ---------------------- AI 작동 --------------------------------
 async def ensure_worker(user_id: str, session_id: int, db: Session):
     # 이미 실행 중이면 재사용
     task = SESSION_TASK.get(session_id)
@@ -32,6 +32,33 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
     out_q = SESSION_OUT.setdefault(session_id, asyncio.Queue())
     cancel_ev = SESSION_CANCEL.setdefault(session_id, asyncio.Event())
 
+    def build_prompt(session_id: int, new_message: str, db: Session):
+
+        history = db.query(ChatMessage) \
+            .filter(ChatMessage.session_id == session_id) \
+            .order_by(ChatMessage.id.asc()) \
+            .all()
+
+        buf = []
+        buf.append("=== SYSTEM CONTEXT ===\n")
+
+        buf.append("system : " + history[0].content)
+        buf.append("\n")
+
+        # HISTORY
+        buf.append("=== CONVERSATION ===\n")
+
+        for h in history[1:]:
+            if h.role == "assistant":
+                buf.append(f"AI: {h.content}\n")
+            else:
+                buf.append(f"USER: {h.content}\n")
+
+        buf.append("\n=== NEW USER INPUT ===\n")
+        buf.append(new_message)
+
+        return "".join(buf)
+
     async def worker():
         try:
             while True:
@@ -41,6 +68,7 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
 
                 user_message = await in_q.get()
 
+
                 # 내부 프로토콜: [[CANCEL]] 메시지를 받으면 종료
                 if user_message == "[[CANCEL]]":
                     break
@@ -49,16 +77,11 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
                     await out_q.put("[[END]]")
                     continue
 
-                # 사용자 발화 저장
-                db.add(ChatMessage(
-                    session_id=session_id, role="user",
-                    content=user_message, user_id=user_id
-                ))
-                _safe_commit(db)
+                prompt = build_prompt(session_id, user_message, db)
 
                 # 여기서는 가짜 스트리밍
                 assembled: list[str] = []
-                for token in ["안녕 ", "나는 ", "AI ", "야 ", "!", "\n"]:
+                for token in prompt:
                     if cancel_ev.is_set():    # 스트림 도중 취소되면 즉시 중단
                         break
                     await asyncio.sleep(0.05)
@@ -133,7 +156,54 @@ def _ensure_enum(ft: FileType | str) -> FileType:
 
 
 ######################################### SERVICE #############################################
-def create_chat_session_with_message_service(user_id: str, request: ChatSessionCreateRequest, db: Session):
+def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, db: Session):
+    cur_chat_session = db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id).one_or_none()
+    if cur_chat_session is None:
+        raise HTTPException(404, "Chat session not found")
+    last_assistant_message = (db.query(ChatMessage).filter(ChatMessage.session_id == chat_session_id, ChatMessage.role == "assistant")
+                              .order_by(ChatMessage.id.desc())
+                              .first())
+    if not last_assistant_message:
+        raise _http_404("No assistant message found for this session.")
+    updated_obj = store_document_content(user_id, cur_chat_session, last_assistant_message.content, db)
+
+    db.commit()
+    try:
+        db.refresh(updated_obj)  # updated_at 같은 DB 생성 값이 필요할 때
+        updated_at = getattr(updated_obj, "updated_at", None)
+    except Exception:
+        updated_at = None
+
+    return StoreFileResponse(
+        ok=True,
+        file_type=cur_chat_session.file_type,
+        file_id=cur_chat_session.file_id,
+        updated_at=updated_at
+    )
+
+def store_document_content(user_id: str, cur_chat_session: ChatSession, content_md: str, db: Session):
+    file_type = cur_chat_session.file_type
+    file_id = cur_chat_session.file_id
+    if file_type == "PROJECT":
+        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file_id).one()
+        proj.content_md = content_md
+        db.add(proj)
+        return proj
+
+    elif file_type in ("PRD", "USER_STORY", "SRS"):
+        doc = db.query(Document).filter(Document.author_id == user_id, Document.id == file_id, Document.type == file_type).one()
+        doc.content_md = content_md
+        db.add(doc)
+        return doc
+
+    elif file_type == "TASK":
+        return None
+
+    else:
+        raise _http_400(f"Unsupported file_type: {file_type}")
+
+
+def create_chat_session_with_message_service(user_id: str, user_message: str, request: ChatSessionCreateRequest, db: Session):
     # 입력 검증
     if not user_id:
         raise _http_400("X-User-ID header required.")
@@ -146,10 +216,17 @@ def create_chat_session_with_message_service(user_id: str, request: ChatSessionC
     # chat session 생성
     chat_session = create_chat_session(user_id, file, file_type, db)
 
+
+
     # file(생성) 상위 file content를 chat message에 미리 등록, cf) Project -> 입력X, userstory -> project, prd 내용 등록
     # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록, cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
     attached_info_to_chat(user_id, chat_session.id, file, file_type, db)
 
+    # 사용자 발화 저장
+    db.add(ChatMessage(
+        session_id=chat_session.id, role="user",
+        content=user_message, user_id=user_id
+    ))
 
     return ChatSessionCreateResponse(
         chat_id=chat_session.id,

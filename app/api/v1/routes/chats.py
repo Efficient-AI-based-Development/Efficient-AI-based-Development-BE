@@ -6,10 +6,11 @@ from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
 from app.db.database import get_db
-from app.db.models import ChatSession
+from app.db.models import ChatSession, ChatMessage
 from app.domain.chat import create_chat_session_with_message_service, ensure_worker, SESSION_IN, SESSION_OUT, \
-    SESSION_TASK, SESSION_CANCEL, CANCEL_SENTINEL, END_SENTINEL
-from app.schemas.chat import ChatSessionCreateResponse, ChatSessionCreateRequest, ChatMessageRequest
+    SESSION_TASK, SESSION_CANCEL, CANCEL_SENTINEL, END_SENTINEL, \
+    apply_ai_last_message_to_content_service
+from app.schemas.chat import ChatSessionCreateResponse, ChatSessionCreateRequest, ChatMessageRequest, StoreFileResponse
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/chats", tags=["chats"])
 @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
 async def start_chat_with_init_file(request: ChatSessionCreateRequest, user_id: str = Header(..., alias="X-User-ID"),  db: Session = Depends(get_db)):
 
-    resp = create_chat_session_with_message_service(user_id, request, db)
+    resp = create_chat_session_with_message_service(user_id, request.content_md, request, db)
+
     await ensure_worker(user_id, resp.chat_id, db)                                  # ① 워커 보장
     await SESSION_IN[resp.chat_id].put(request.content_md)
 
@@ -39,6 +41,13 @@ async def send_message(
     if chat_session_id not in SESSION_OUT:
         # 스트림이 열리기 전 메시지 -> 무시할지, 저장만 할지 선택
         return {"ok": True, "ignored": True}
+
+    db.add(ChatMessage(
+        session_id=chat_session_id, role="user",
+        content=request.content_md, user_id=user_id
+    ))
+    db.commit()
+
 
     # worker 보장
     await ensure_worker(user_id, chat_session_id, db)
@@ -132,8 +141,9 @@ async def cancel_session(chat_session_id: int, user_id: str = Header(...,alias="
 
     return {"ok": True}
 
-
-
+@router.post("/{chat_session_id}/store", response_model = StoreFileResponse , status_code=200)
+def store_file(chat_session_id: int, user_id: str = Header(...,alias="X-User-ID"), db: Session = Depends(get_db)):
+    return apply_ai_last_message_to_content_service(user_id, chat_session_id, db)
 
 
 
