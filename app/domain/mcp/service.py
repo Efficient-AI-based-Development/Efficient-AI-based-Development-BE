@@ -419,7 +419,139 @@ class MCPService:
                     ],
                 ),
             ],
-        )
+        ),
+        "claude": MCPGuideResponse(
+            provider_id="claude",
+            provider_name="Claude Code MCP",
+            supported_agents=["Claude Code", "Cursor"],
+            prerequisites=[
+                "Node.js 20 이상 설치",
+                "Anthropic API Key 준비",
+            ],
+            platforms=[
+                MCPGuidePlatform(
+                    os="macOS",
+                    steps=[
+                        MCPGuideStep(
+                            title="1. MCP 서버 연결하기",
+                            description="fastmcp CLI를 통해 Anthropic 키로 로그인합니다.",
+                            commands=[
+                                MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                                MCPGuideCommand(text="fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="2. 프로젝트 연동하기",
+                            description="프로젝트 루트에서 Claude MCP 구성을 생성합니다.",
+                            commands=[
+                                MCPGuideCommand(text="cd /path/to/project"),
+                                MCPGuideCommand(text="fastmcp init --provider claude --project <PROJECT_ID>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="3. 에이전트 실행",
+                            description="Claude Code에서 MCP 프로젝트를 실행하면 연결됩니다.",
+                            commands=[
+                                MCPGuideCommand(text="fastmcp run --provider claude --project <PROJECT_ID>"),
+                            ],
+                        ),
+                    ],
+                ),
+                MCPGuidePlatform(
+                    os="Windows",
+                    steps=[
+                        MCPGuideStep(
+                            title="PowerShell에서 로그인",
+                            description="PowerShell을 관리자 권한으로 실행해 주세요.",
+                            commands=[
+                                MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                                MCPGuideCommand(text="fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="프로젝트 초기화",
+                            description="프로젝트 디렉토리에서 초기화합니다.",
+                            commands=[
+                                MCPGuideCommand(text="cd C:\\path\\to\\project"),
+                                MCPGuideCommand(text="fastmcp init --provider claude --project <PROJECT_ID>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="작업 실행",
+                            description="명령어를 실행하거나 Claude Code에서 MCP 실행 버튼을 눌러주세요.",
+                            commands=[
+                                MCPGuideCommand(text="fastmcp run --provider claude --project <PROJECT_ID>"),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        "cursor": MCPGuideResponse(
+            provider_id="cursor",
+            provider_name="Cursor MCP",
+            supported_agents=["Cursor"],
+            prerequisites=[
+                "Node.js 20 이상 설치",
+                "Cursor 0.45 이상 버전",
+            ],
+            platforms=[
+                MCPGuidePlatform(
+                    os="macOS",
+                    steps=[
+                        MCPGuideStep(
+                            title="1. CLI 설치",
+                            description="Cursor MCP CLI 또는 fastmcp CLI를 설치합니다.",
+                            commands=[
+                                MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="2. 프로젝트 등록",
+                            description="Cursor와 연동할 프로젝트를 등록합니다.",
+                            commands=[
+                                MCPGuideCommand(text="cd /path/to/project"),
+                                MCPGuideCommand(text="fastmcp init --provider cursor --project <PROJECT_ID>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="3. Cursor에서 실행",
+                            description="`Cmd+Shift+P` → `Open MCP Project` 후 아래 명령을 실행하거나 UI 버튼을 눌러주세요.",
+                            commands=[
+                                MCPGuideCommand(text="fastmcp run --provider cursor --project <PROJECT_ID>"),
+                            ],
+                        ),
+                    ],
+                ),
+                MCPGuidePlatform(
+                    os="Windows",
+                    steps=[
+                        MCPGuideStep(
+                            title="PowerShell에서 CLI 설치",
+                            description="npm이 PATH에 있어야 합니다.",
+                            commands=[
+                                MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="프로젝트 준비",
+                            description="프로젝트 디렉토리로 이동 후 MCP 구성을 생성합니다.",
+                            commands=[
+                                MCPGuideCommand(text="cd C:\\path\\to\\project"),
+                                MCPGuideCommand(text="fastmcp init --provider cursor --project <PROJECT_ID>"),
+                            ],
+                        ),
+                        MCPGuideStep(
+                            title="Cursor에서 연결 확인",
+                            description="Cursor Command Palette에서 MCP 프로젝트를 선택하면 연결됩니다.",
+                            commands=[
+                                MCPGuideCommand(text="fastmcp run --provider cursor --project <PROJECT_ID>"),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
     }
 
     def get_guide(self, provider_id: str) -> MCPGuideResponse:
