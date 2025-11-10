@@ -402,3 +402,57 @@ class MCPProjectStatusItem(BaseModel):
 
 class MCPProjectStatusResponse(BaseModel):
     data: List[MCPProjectStatusItem]
+
+
+# ---------------------------------------------------------------------------
+# Provider Guide
+# ---------------------------------------------------------------------------
+
+
+class MCPGuideCommand(BaseModel):
+    text: str = Field(..., description="터미널에 입력할 명령어", examples=["npm i -g fastmcp-cli"])
+
+
+class MCPGuideStep(BaseModel):
+    title: str = Field(..., description="단계 제목", examples=["1. MCP 서버 연결하기"])
+    description: Optional[str] = Field(
+        default=None,
+        description="단계 설명",
+        examples=["터미널에서 한 번만 실행하면 됩니다."],
+    )
+    commands: List[MCPGuideCommand] = Field(
+        default_factory=list,
+        description="순서대로 실행할 명령어 목록",
+    )
+
+
+class MCPGuidePlatform(BaseModel):
+    os: str = Field(..., description="운영체제 이름", examples=["macOS", "Windows"])
+    steps: List[MCPGuideStep] = Field(..., description="운영체제별 안내 단계")
+
+
+class MCPGuideResponse(BaseModel):
+    provider_id: str = Field(..., alias="providerId", description="MCP 제공자 ID", examples=["chatgpt"])
+    provider_name: str = Field(
+        ...,
+        alias="providerName",
+        description="사용자에게 보여줄 제공자 이름",
+        examples=["ChatGPT MCP"],
+    )
+    supported_agents: List[str] = Field(
+        default_factory=list,
+        alias="supportedAgents",
+        description="연동 가능한 에이전트 목록",
+        examples=[["Cursor", "Claude Code"]],
+    )
+    prerequisites: List[str] = Field(
+        default_factory=list,
+        description="사전 준비 사항",
+        examples=[["Node.js 20 이상 설치"]],
+    )
+    platforms: List[MCPGuidePlatform] = Field(
+        ...,
+        description="운영체제별 단계 안내",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
