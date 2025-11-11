@@ -64,10 +64,31 @@ DATABASE_URL=oracle+oracledb://user:password@host:1521/service
 DEBUG=false
 LOG_LEVEL=INFO
 API_PREFIX=/api/v1
-# OpenAI 연동 (ChatGPT MCP용)
-OPENAI_API_KEY=sk-...
+# fastMCP 연동 (ChatGPT MCP용)
+FASTMCP_BASE_URL=http://localhost:8787
+FASTMCP_TOKEN=project-fastmcp-token-1234
 OPENAI_MODEL=gpt-4o-mini
 ```
+
+fastMCP 서버는 저장소 내 `fastmcp-fastapi` 예제를 사용할 수 있습니다.
+
+```bash
+cd fastmcp-fastapi
+# .env 파일을 생성하고 아래 값을 참고해 설정합니다.
+uv run uvicorn fastmcp-fastapi.server:app --reload --port 8787
+```
+
+`fastmcp-fastapi/.env` 예시:
+
+```env
+FASTMCP_TOKEN=project-fastmcp-token-1234
+FASTMCP_MODE=mock  # mock | real
+OPENAI_API_KEY=sk-your-openai-api-key
+ANTHROPIC_API_KEY=sk-your-anthropic-api-key
+PORT=8787
+```
+
+`FASTMCP_TOKEN` 값은 백엔드 `.env`의 값과 동일하게 맞춰 주세요.
 
 ### 6. 데이터베이스 마이그레이션
 

@@ -680,17 +680,20 @@ class MCPService:
         provider_type = connection.connection_type
 
         if provider_type == "chatgpt":
-            if not settings.openai_api_key:
-                raise ValidationError("ChatGPT 실행을 위해 OPENAI_API_KEY 환경 변수가 필요합니다.")
+            if not settings.fastmcp_base_url or not settings.fastmcp_token:
+                raise ValidationError(
+                    "ChatGPT 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요."
+                )
             provider = ChatGPTProvider(
-                api_key=settings.openai_api_key,
+                base_url=settings.fastmcp_base_url,
+                token=settings.fastmcp_token,
                 model=settings.openai_model,
             )
             provider_arguments = self._build_chatgpt_arguments(payload)
             result_payload = provider.run(provider_arguments)
             run.result = self._dump_json(result_payload)
             run.status = "succeeded"
-            run.message = "ChatGPT 응답이 생성되었습니다."
+            run.message = "ChatGPT 응답이 fastMCP를 통해 생성되었습니다."
         else:
             run.result = self._dump_json(
                 {

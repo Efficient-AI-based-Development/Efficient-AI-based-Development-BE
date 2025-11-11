@@ -1,20 +1,25 @@
-"""ChatGPT provider implementation for MCP runs."""
+"""ChatGPT provider implementation for MCP runs via fastMCP."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
+import httpx
 
 
 class ChatGPTProvider:
-    """Execute MCP runs using OpenAI's ChatGPT models."""
+    """Execute MCP runs by delegating to fastMCP's OpenAI integration."""
 
-    def __init__(self, api_key: str, model: str) -> None:
-        if not api_key:
-            raise ValueError("OpenAI API 키가 설정되어 있지 않습니다.")
-        self._client = OpenAI(api_key=api_key)
+    def __init__(self, base_url: str, token: str, model: str, timeout: float = 60.0) -> None:
+        if not base_url:
+            raise ValueError("fastMCP base URL이 설정되어 있지 않습니다.")
+        if not token:
+            raise ValueError("fastMCP 토큰이 설정되어 있지 않습니다.")
+
+        self._base_url = base_url.rstrip("/")
+        self._token = token
         self._model = model
+        self._timeout = timeout
 
     def run(self, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute a ChatGPT completion with provided arguments."""
@@ -27,32 +32,41 @@ class ChatGPTProvider:
         max_tokens = arguments.get("maxTokens") or arguments.get("max_tokens")
 
         if messages and isinstance(messages, list):
-            input_payload: Any = messages
+            message_payload: List[Dict[str, Any]] = messages
         elif isinstance(prompt, str) and prompt.strip():
-            input_payload = prompt
+            message_payload = [{"role": "user", "content": prompt}]
         else:
             raise ValueError("ChatGPT 실행을 위해 prompt 또는 messages 인자가 필요합니다.")
 
-        request_kwargs: Dict[str, Any] = {
+        payload: Dict[str, Any] = {
+            "provider": "openai",
             "model": model,
-            "input": input_payload,
+            "messages": message_payload,
         }
         if temperature is not None:
-            request_kwargs["temperature"] = float(temperature)
+            payload["temperature"] = float(temperature)
         if max_tokens is not None:
-            request_kwargs["max_output_tokens"] = int(max_tokens)
+            payload["max_tokens"] = int(max_tokens)
 
-        response = self._client.responses.create(**request_kwargs)
+        response = httpx.post(
+            f"{self._base_url}/ai/chat",
+            json=payload,
+            headers={"Authorization": f"Bearer {self._token}"},
+            timeout=self._timeout,
+        )
 
-        raw_payload: Optional[Dict[str, Any]] = None
-        if hasattr(response, "model_dump"):
-            raw_payload = response.model_dump(mode="json")  # type: ignore[assignment]
+        response.raise_for_status()
+        data = response.json()
+
+        if not data.get("ok", False):
+            error = data.get("error") or {}
+            raise ValueError(error.get("message") or "fastMCP ChatGPT 호출이 실패했습니다.")
 
         return {
-            "output_text": getattr(response, "output_text", None),
-            "model": getattr(response, "model", None),
-            "usage": raw_payload.get("usage") if isinstance(raw_payload, dict) else None,
-            "raw": raw_payload,
+            "output_text": data.get("text"),
+            "model": data.get("model"),
+            "usage": data.get("usage"),
+            "raw": data,
         }
 
 

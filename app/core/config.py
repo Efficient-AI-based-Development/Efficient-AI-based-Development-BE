@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # OpenAI / MCP
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
+    fastmcp_base_url: str | None = "http://localhost:8787"
+    fastmcp_token: str | None = None
 
     # Server
     host: str = "0.0.0.0"
