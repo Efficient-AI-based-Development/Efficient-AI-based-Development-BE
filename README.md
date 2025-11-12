@@ -68,6 +68,7 @@ API_PREFIX=/api/v1
 FASTMCP_BASE_URL=http://localhost:8787
 FASTMCP_TOKEN=project-fastmcp-token-1234
 OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_MODEL=claude-3-sonnet
 ```
 
 fastMCP 서버는 저장소 내 `fastmcp-fastapi` 예제를 사용할 수 있습니다.
@@ -88,7 +89,25 @@ ANTHROPIC_API_KEY=sk-your-anthropic-api-key
 PORT=8787
 ```
 
+> **참고**  
+> OpenAI·Anthropic API 키는 fastMCP 서버에 사전 설정해 두고 운영합니다.  
+> 최종 사용자는 발급받은 `FASTMCP_TOKEN`만 입력하면 되며, 별도의 API 키를 직접 저장할 필요가 없습니다.
+
 `FASTMCP_TOKEN` 값은 백엔드 `.env`의 값과 동일하게 맞춰 주세요.
+
+fastMCP CLI 사용 예시는 다음과 같습니다.
+
+```bash
+# ChatGPT 기본
+uv run fastmcp login --base-url http://localhost:8787
+uv run fastmcp init --project demo --provider chatgpt
+
+# Claude 연동
+uv run fastmcp init --project demo-claude --provider claude
+
+# 실행
+uv run fastmcp run --prompt "이번 sprint 요약해줘"
+```
 
 ### 6. 데이터베이스 마이그레이션
 

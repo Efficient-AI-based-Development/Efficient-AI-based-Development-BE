@@ -1,4 +1,4 @@
-"""ChatGPT provider implementation for MCP runs via fastMCP."""
+"""fastMCP-backed providers for MCP runs."""
 
 from __future__ import annotations
 
@@ -7,10 +7,17 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 
-class ChatGPTProvider:
-    """Execute MCP runs by delegating to fastMCP's OpenAI integration."""
+class _BaseFastMCPProvider:
+    """Execute MCP runs by delegating to fastMCP integrations."""
 
-    def __init__(self, base_url: str, token: str, model: str, timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        model: str,
+        provider_key: str,
+        timeout: float = 60.0,
+    ) -> None:
         if not base_url:
             raise ValueError("fastMCP base URL이 설정되어 있지 않습니다.")
         if not token:
@@ -19,6 +26,7 @@ class ChatGPTProvider:
         self._base_url = base_url.rstrip("/")
         self._token = token
         self._model = model
+        self._provider_key = provider_key
         self._timeout = timeout
 
     def run(self, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -39,7 +47,7 @@ class ChatGPTProvider:
             raise ValueError("ChatGPT 실행을 위해 prompt 또는 messages 인자가 필요합니다.")
 
         payload: Dict[str, Any] = {
-            "provider": "openai",
+            "provider": self._provider_key,
             "model": model,
             "messages": message_payload,
         }
@@ -68,5 +76,31 @@ class ChatGPTProvider:
             "usage": data.get("usage"),
             "raw": data,
         }
+
+
+class ChatGPTProvider(_BaseFastMCPProvider):
+    """fastMCP OpenAI provider."""
+
+    def __init__(self, base_url: str, token: str, model: str, timeout: float = 60.0) -> None:
+        super().__init__(
+            base_url=base_url,
+            token=token,
+            model=model,
+            provider_key="openai",
+            timeout=timeout,
+        )
+
+
+class ClaudeProvider(_BaseFastMCPProvider):
+    """fastMCP Anthropic provider."""
+
+    def __init__(self, base_url: str, token: str, model: str, timeout: float = 60.0) -> None:
+        super().__init__(
+            base_url=base_url,
+            token=token,
+            model=model,
+            provider_key="anthropic",
+            timeout=timeout,
+        )
 
 

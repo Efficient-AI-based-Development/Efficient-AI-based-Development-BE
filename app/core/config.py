@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     fastmcp_base_url: str | None = "http://localhost:8787"
     fastmcp_token: str | None = None
+    anthropic_model: str = "claude-3-sonnet"
 
     # Server
     host: str = "0.0.0.0"

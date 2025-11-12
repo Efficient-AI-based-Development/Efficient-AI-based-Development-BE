@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session  # type: ignore
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db import models
-from app.domain.mcp.providers import ChatGPTProvider
+from app.domain.mcp.providers import ChatGPTProvider, ClaudeProvider
 
 from app.schemas.mcp import (
     MCPConnectionCreate,
@@ -359,7 +359,7 @@ class MCPService:
             supported_agents=["Cursor", "Claude Code", "Codex CLI"],
             prerequisites=[
                 "Node.js 20 이상 설치",
-                "OpenAI API Key 준비",
+                "fastmcp 서버 접근 토큰 (서비스에서 발급)",
             ],
             platforms=[
                 MCPGuidePlatform(
@@ -367,10 +367,10 @@ class MCPService:
                     steps=[
                         MCPGuideStep(
                             title="1. MCP 서버 연결하기",
-                            description=" fastmcp CLI를 설치하고 로그인합니다. 계정당 한 번만 실행하면 됩니다.",
+                            description="fastmcp CLI를 설치하고 로그인합니다. 계정당 한 번만 실행하면 됩니다.",
                             commands=[
                                 MCPGuideCommand(text="npm i -g fastmcp-cli"),
-                                MCPGuideCommand(text="fastmcp login --api-key <OPENAI_API_KEY>"),
+                                MCPGuideCommand(text="fastmcp login --base-url <FASTMCP_URL>"),
                             ],
                         ),
                         MCPGuideStep(
@@ -465,7 +465,7 @@ class MCPService:
                             description="PowerShell을 관리자 권한으로 실행해 주세요.",
                             commands=[
                                 MCPGuideCommand(text="npm i -g fastmcp-cli"),
-                                MCPGuideCommand(text="fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>"),
+                                MCPGuideCommand(text="fastmcp login --base-url <FASTMCP_URL>"),
                             ],
                         ),
                         MCPGuideStep(
@@ -531,6 +531,7 @@ class MCPService:
                             description="npm이 PATH에 있어야 합니다.",
                             commands=[
                                 MCPGuideCommand(text="npm i -g fastmcp-cli"),
+                                MCPGuideCommand(text="fastmcp login --base-url <FASTMCP_URL>"),
                             ],
                         ),
                         MCPGuideStep(
@@ -689,11 +690,26 @@ class MCPService:
                 token=settings.fastmcp_token,
                 model=settings.openai_model,
             )
-            provider_arguments = self._build_chatgpt_arguments(payload)
+            provider_arguments = self._build_chat_arguments(payload)
             result_payload = provider.run(provider_arguments)
             run.result = self._dump_json(result_payload)
             run.status = "succeeded"
             run.message = "ChatGPT 응답이 fastMCP를 통해 생성되었습니다."
+        elif provider_type == "claude":
+            if not settings.fastmcp_base_url or not settings.fastmcp_token:
+                raise ValidationError(
+                    "Claude 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요."
+                )
+            provider = ClaudeProvider(
+                base_url=settings.fastmcp_base_url,
+                token=settings.fastmcp_token,
+                model=settings.anthropic_model,
+            )
+            provider_arguments = self._build_chat_arguments(payload)
+            result_payload = provider.run(provider_arguments)
+            run.result = self._dump_json(result_payload)
+            run.status = "succeeded"
+            run.message = "Claude 응답이 fastMCP를 통해 생성되었습니다."
         else:
             run.result = self._dump_json(
                 {
@@ -708,7 +724,7 @@ class MCPService:
         self.db.commit()
         self.db.refresh(run)
 
-    def _build_chatgpt_arguments(self, payload: MCPRunCreate) -> Dict[str, Any]:
+    def _build_chat_arguments(self, payload: MCPRunCreate) -> Dict[str, Any]:
         config = payload.config or {}
         arguments: Dict[str, Any] = {}
         if config.get("model"):
