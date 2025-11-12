@@ -268,7 +268,7 @@ class MCPService:
         return [
             MCPProjectStatusItem(
                 id=str(project.id),
-                name=project.name,
+                name=project.title,  # Project 모델의 title 필드 사용
                 mcp_status=self._resolve_project_status(project.mcp_connections),
             )
             for project in projects
