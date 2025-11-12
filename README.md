@@ -92,6 +92,7 @@ PORT=8787
 > **참고**  
 > OpenAI·Anthropic API 키는 fastMCP 서버에 사전 설정해 두고 운영합니다.  
 > 최종 사용자는 발급받은 `FASTMCP_TOKEN`만 입력하면 되며, 별도의 API 키를 직접 저장할 필요가 없습니다.
+> 실서비스에서는 `FASTMCP_MODE=real` 로 변경하고 실제 API 키를 제공하면 됩니다.
 
 `FASTMCP_TOKEN` 값은 백엔드 `.env`의 값과 동일하게 맞춰 주세요.
 

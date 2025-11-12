@@ -119,7 +119,11 @@ def run(
     config = load_config()
     project = load_project()
     provider = project.get("provider", "chatgpt")
-    provider_key, default_model = PROVIDER_MAP.get(provider, (provider, project.get("provider_key", provider)))
+    if provider in PROVIDER_MAP:
+        provider_key, default_model = PROVIDER_MAP[provider]
+    else:
+        provider_key = project.get("provider_key", provider)
+        default_model = project.get("model", "gpt-4o-mini")
 
     payload = {
         "provider": provider_key,

@@ -1,0 +1,6 @@
+{
+  "project": "demo-claude",
+  "provider": "claude",
+  "provider_key": "anthropic",
+  "model": "claude-3-sonnet"
+}
