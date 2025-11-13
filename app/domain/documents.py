@@ -19,24 +19,24 @@ from app.schemas.document import (
 
 
 def create_document_service(
-    projectID: int, user_id: str, request: DocumentCreateRequest, db: Session
+    project_id: int, user_id: str, request: DocumentCreateRequest, db: Session
 ) -> Document:
-    project = get_project_by_id(projectID, user_id, db)
+    project = get_project_by_id(project_id, user_id, db)
     if project is None:
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
 
-    existing = check_document_exist(projectID, user_id, request, db)
+    existing = check_document_exist(project_id, user_id, request, db)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Document already exists")
 
     try:
-        document = create_new_document_repo(projectID, user_id, request, db)
+        document = create_new_document_repo(project_id, user_id, request, db)
         db.commit()
         db.refresh(document)
         return document
 
     except NoResultFound:
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Document already exists")
@@ -49,12 +49,12 @@ def create_document_service(
         )
 
 
-def get_document_service(projectID: int, type: str, user_id: str, db: Session) -> Document:
+def get_document_service(project_id: int, type: str, user_id: str, db: Session) -> Document:
     try:
-        document = get_document(projectID, type, user_id, db)
+        document = get_document(project_id, type, user_id, db)
         return document
     except NoResultFound:
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except SQLAlchemyError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
@@ -62,16 +62,16 @@ def get_document_service(projectID: int, type: str, user_id: str, db: Session) -
 
 
 def update_project_service(
-    projectID: int, type: str, user_id: str, request: DocumentUpdateRequest, db: Session
+    project_id: int, type: str, user_id: str, request: DocumentUpdateRequest, db: Session
 ) -> Document:
     try:
-        document = update_document_repo(projectID, type, user_id, request, db)
+        document = update_document_repo(project_id, type, user_id, request, db)
         db.commit()
         db.refresh(document)
         return document
     except NoResultFound:
         db.rollback()
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
@@ -79,13 +79,13 @@ def update_project_service(
         )
 
 
-def get_document_list_service(projectID: int, user_id: str, db: Session) -> DocumentPage:
+def get_document_list_service(project_id: int, user_id: str, db: Session) -> DocumentPage:
     try:
-        documents_orm = get_document_list_repo(projectID, user_id, db)
+        documents_orm = get_document_list_repo(project_id, user_id, db)
         return DocumentPage(documents=[DocumentRead.model_validate(p) for p in documents_orm])
 
     except NoResultFound:
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
 
     except SQLAlchemyError:
         raise HTTPException(
@@ -99,13 +99,13 @@ def get_document_list_service(projectID: int, user_id: str, db: Session) -> Docu
 
 
 def check_document_exist(
-    projectID: int, user_id: str, request: DocumentCreateRequest, db: Session
+    project_id: int, user_id: str, request: DocumentCreateRequest, db: Session
 ) -> Document | None:
     return (
         db.query(Document)
         .filter(
             Document.author_id == user_id,
-            Document.project_id == projectID,
+            Document.project_id == project_id,
             Document.type == request.type,
         )
         .one_or_none()
@@ -121,11 +121,11 @@ def get_project_by_id(project_id: int, user_id: str, db: Session) -> Project | N
 
 
 def create_new_document_repo(
-    projectID: int, user_id: str, request: DocumentCreateRequest, db: Session
+    project_id: int, user_id: str, request: DocumentCreateRequest, db: Session
 ) -> Document:
     # 프로젝트 존재 검사
     data = request.model_dump()
-    data["project_id"] = projectID
+    data["project_id"] = project_id
     data["author_id"] = user_id
     data["last_editor_id"] = user_id
     document = Document(**data)
@@ -134,11 +134,11 @@ def create_new_document_repo(
     return document
 
 
-def get_document(projectID: int, type: str, user_id: str, db: Session) -> Document:
+def get_document(project_id: int, type: str, user_id: str, db: Session) -> Document:
     document = (
         db.query(Document)
         .filter(
-            Document.author_id == user_id, Document.project_id == projectID, Document.type == type
+            Document.author_id == user_id, Document.project_id == project_id, Document.type == type
         )
         .one()
     )
@@ -146,12 +146,12 @@ def get_document(projectID: int, type: str, user_id: str, db: Session) -> Docume
 
 
 def update_document_repo(
-    projectID: int, type: str, user_id: str, request: DocumentUpdateRequest, db: Session
+    project_id: int, type: str, user_id: str, request: DocumentUpdateRequest, db: Session
 ) -> Document:
     document = (
         db.query(Document)
         .filter(
-            Document.author_id == user_id, Document.project_id == projectID, Document.type == type
+            Document.author_id == user_id, Document.project_id == project_id, Document.type == type
         )
         .one()
     )
@@ -163,9 +163,9 @@ def update_document_repo(
     return document
 
 
-def get_document_list_repo(projectID: int, user_id: str, db: Session) -> list[DocumentRead]:
+def get_document_list_repo(project_id: int, user_id: str, db: Session) -> list[DocumentRead]:
     return (
         db.query(Document)
-        .filter(Document.author_id == user_id, Document.project_id == projectID)
+        .filter(Document.author_id == user_id, Document.project_id == project_id)
         .all()
     )

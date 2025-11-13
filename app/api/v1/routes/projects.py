@@ -33,7 +33,7 @@ def create_project(
 
 @router.get("/{projectID}", response_model=ProjectRead, status_code=200)
 def get_project(projectID: int, db: Session = Depends(get_db)):
-    return get_project_service(projectID, db)
+    return get_project_service(project_id=projectID, db=db)
 
 
 @router.get("", response_model=ProjectPage, status_code=200)
@@ -52,11 +52,11 @@ def update_project(
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return update_project_service(projectID, user_id, request, db)
+    return update_project_service(project_id=projectID, user_id=user_id, request=request, db=db)
 
 
 @router.delete("/{projectID}", response_model=ProjectDeleteResponse, status_code=200)
 def delete_project(
     projectID: int, user_id: str = Header(..., alias="X-User-ID"), db: Session = Depends(get_db)
 ):
-    return delete_project_service(projectID, user_id, db)
+    return delete_project_service(project_id=projectID, user_id=user_id, db=db)

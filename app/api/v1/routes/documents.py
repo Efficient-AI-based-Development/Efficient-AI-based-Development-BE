@@ -27,7 +27,7 @@ def create_document(
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return create_document_service(projectID, user_id, request, db)
+    return create_document_service(project_id=projectID, user_id=user_id, request=request, db=db)
 
 
 @router.get("/projects/{projectID}/docs/{type}", response_model=DocumentRead, status_code=200)
@@ -37,7 +37,7 @@ def get_document(
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return get_document_service(projectID, type, user_id, db)
+    return get_document_service(project_id=projectID, type=type, user_id=user_id, db=db)
 
 
 @router.patch("/projects/{projectID}/docs/{type}", response_model=DocumentRead, status_code=200)
@@ -48,11 +48,11 @@ def update_document(
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return update_project_service(projectID, type, user_id, request, db)
+    return update_project_service(project_id=projectID, type=type, user_id=user_id, request=request, db=db)
 
 
 @router.get("/projects/{projectID}/docs", response_model=DocumentPage, status_code=200)
 def get_document_list(
     projectID: int, user_id: str = Header(..., alias="X-User-ID"), db: Session = Depends(get_db)
 ):
-    return get_document_list_service(projectID, user_id, db)
+    return get_document_list_service(project_id=projectID, user_id=user_id, db=db)

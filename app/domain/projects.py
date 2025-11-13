@@ -22,12 +22,12 @@ from app.schemas.project import (
 #################################################################################################################################################################
 ########################################################################### 서비스 정의 ###########################################################################
 #################################################################################################################################################################
-def get_project_service(projectID: int, db: Session) -> ProjectRead:
+def get_project_service(project_id: int, db: Session) -> ProjectRead:
     try:
-        project = get_project_by_id(projectID, db)
+        project = get_project_by_id(project_id, db)
         return to_project_read(project)
     except NoResultFound:
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except SQLAlchemyError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
@@ -92,16 +92,16 @@ def to_project_read(project):
 
 
 def update_project_service(
-    projectID: int, user_id: str, request: ProjectUpdateRequest, db: Session
+    project_id: int, user_id: str, request: ProjectUpdateRequest, db: Session
 ) -> ProjectRead:
     try:
-        project = update_project_repo(projectID, user_id, request, db)
+        project = update_project_repo(project_id, user_id, request, db)
         db.commit()
         db.refresh(project)
         return to_project_read(project)
     except NoResultFound:
         db.rollback()
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
@@ -109,9 +109,9 @@ def update_project_service(
         )
 
 
-def delete_project_service(projectID: int, user_id: str, db: Session) -> ProjectDeleteResponse:
+def delete_project_service(project_id: int, user_id: str, db: Session) -> ProjectDeleteResponse:
     try:
-        project = delete_project_repo(projectID, user_id, db)
+        project = delete_project_repo(project_id, user_id, db)
         resp = ProjectDeleteResponse(
             id=project.id,
             project_idx=project.project_idx,
@@ -123,7 +123,7 @@ def delete_project_service(projectID: int, user_id: str, db: Session) -> Project
 
     except NoResultFound:
         db.rollback()
-        raise HTTPException(status_code=404, detail=f"Project with ID {projectID} not found")
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
 
     except SQLAlchemyError:
         db.rollback()
@@ -148,8 +148,8 @@ def get_pagination_params(
 #################################################################################################################################################################
 ########################################################################### REPO 관리 ############################################################################
 #################################################################################################################################################################
-def get_project_by_id(projectID: int, db: Session) -> Project:
-    project = db.query(Project).filter(Project.id == projectID).one()
+def get_project_by_id(project_id: int, db: Session) -> Project:
+    project = db.query(Project).filter(Project.id == project_id).one()
     return project
 
 
@@ -179,10 +179,10 @@ def get_project_list_repo(
 
 
 def update_project_repo(
-    projectID: int, user_id: str, request: ProjectUpdateRequest, db: Session
+    project_id: int, user_id: str, request: ProjectUpdateRequest, db: Session
 ) -> Project:
 
-    project = db.query(Project).filter(Project.owner_id == user_id, Project.id == projectID).one()
+    project = db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one()
 
     data = request.model_dump(exclude_unset=True, exclude_none=True)
 
@@ -192,7 +192,7 @@ def update_project_repo(
     return project
 
 
-def delete_project_repo(projectID: int, user_id: str, db: Session) -> Project:
-    project = db.query(Project).filter(Project.owner_id == user_id, Project.id == projectID).one()
+def delete_project_repo(project_id: int, user_id: str, db: Session) -> Project:
+    project = db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one()
     db.delete(project)
     return project
