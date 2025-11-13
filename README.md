@@ -64,7 +64,7 @@ DATABASE_URL=oracle+oracledb://user:password@host:1521/service
 DEBUG=false
 LOG_LEVEL=INFO
 API_PREFIX=/api/v1
-# fastMCP 연동 (ChatGPT MCP용)
+# fastMCP 연동 (ChatGPT, Claude, Cursor MCP용)
 FASTMCP_BASE_URL=http://localhost:8787
 FASTMCP_TOKEN=project-fastmcp-token-1234
 OPENAI_MODEL=gpt-4o-mini
@@ -99,15 +99,27 @@ PORT=8787
 fastMCP CLI 사용 예시는 다음과 같습니다.
 
 ```bash
-# ChatGPT 기본
+# 로그인 (한 번만 실행)
 uv run fastmcp login --base-url http://localhost:8787
+
+# ChatGPT 연동
 uv run fastmcp init --project demo --provider chatgpt
 
 # Claude 연동
 uv run fastmcp init --project demo-claude --provider claude
 
-# 실행
-uv run fastmcp run --prompt "이번 sprint 요약해줘"
+# Cursor 연동
+uv run fastmcp init --project demo-cursor --provider cursor
+
+# 실행 (자연어 명령어 지원 - vooster.ai 스타일)
+uv run fastmcp run "프로젝트 demo의 다음 작업 진행"
+uv run fastmcp run "프로젝트 demo의 T-001 작업 수행"
+
+# 실행 (직접 프롬프트)
+uv run fastmcp run "이번 sprint 요약해줘"
+
+# 프로젝트 ID 명시
+uv run fastmcp run "다음 작업 진행" --project demo
 ```
 
 ### 6. 데이터베이스 마이그레이션
@@ -312,15 +324,33 @@ DELETE /api/v1/tasks/{id}            # 삭제
 #### MCP (Model Context Protocol)
 
 ```bash
-POST   /api/mcp/connections          # 연결 생성
-GET    /api/mcp/connections          # 연결 목록
-DELETE /api/mcp/connections/{id}     # 연결 종료
-POST   /api/mcp/sessions            # 세션 시작
-GET    /api/mcp/sessions            # 세션 목록
-GET    /api/mcp/tools               # 툴 카탈로그
-GET    /api/mcp/resources            # 리소스 카탈로그
-GET    /api/mcp/prompts              # 프롬프트 카탈로그
-POST   /api/mcp/runs                # 실행 생성
-GET    /api/mcp/runs/{id}           # 실행 상태
-GET    /api/mcp/runs/{id}/events    # SSE 이벤트 스트리밍
+# 프로젝트 상태
+GET    /api/v1/mcp/projects                    # 프로젝트별 MCP 연결 현황
+
+# 연결 관리
+POST   /api/v1/mcp/connections                 # 연결 생성
+GET    /api/v1/mcp/connections                 # 연결 목록
+POST   /api/v1/mcp/connections/{id}/activate   # 연결 활성화 (필수!)
+DELETE /api/v1/mcp/connections/{id}            # 연결 종료
+
+# 가이드
+GET    /api/v1/mcp/providers/{providerId}/guide # 연동 가이드 조회 (vooster.ai 스타일)
+
+# 세션 관리
+POST   /api/v1/mcp/sessions                    # 세션 시작
+GET    /api/v1/mcp/sessions                    # 세션 목록
+DELETE /api/v1/mcp/sessions/{id}               # 세션 종료
+
+# 카탈로그
+GET    /api/v1/mcp/tools                       # 툴 카탈로그
+GET    /api/v1/mcp/resources                   # 리소스 카탈로그
+GET    /api/v1/mcp/prompts                     # 프롬프트 카탈로그
+
+# 실행
+POST   /api/v1/mcp/runs                        # 실행 생성
+GET    /api/v1/mcp/runs/{id}                   # 실행 상태 조회
+POST   /api/v1/mcp/runs/{id}/cancel            # 실행 취소
+GET    /api/v1/mcp/runs/{id}/events            # 실행 이벤트 조회
 ```
+
+**지원 Provider**: `chatgpt`, `claude`, `cursor`
