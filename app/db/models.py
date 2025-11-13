@@ -15,6 +15,7 @@
 """
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (  # type: ignore
     CLOB,
@@ -133,26 +134,62 @@ class Document(Base):
 
     __tablename__ = "documents"
 
-    id = Column(Integer, primary_key=True)
-    project_id = Column(
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="문서 고유 ID",
+    )
+
+    project_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("projects.id", ondelete="CASCADE"),  # FK + 삭제시 CASCADE
         nullable=False,
+        comment="프로젝트 ID",
     )
-    type = Column(String(20), nullable=False)
-    title = Column(String(300), nullable=False)
-    content_md = Column(CLOB)
-    author_id = Column(String(120), nullable=False)
-    last_editor_id = Column(String(120), nullable=False)
-    created_at = Column(
+
+    type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        comment="문서 타입 (PRD, USER_STORY, SRS)",
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(300),
+        nullable=False,
+        comment="문서 제목",
+    )
+
+    content_md: Mapped[str | None] = mapped_column(
+        CLOB,
+        nullable=True,
+        comment="Markdown 형식 내용",
+    )
+
+    author_id: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False,
+        comment="작성자 ID",
+    )
+
+    last_editor_id: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False,
+        comment="마지막 수정자 ID",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),  # Oracle의 DEFAULT SYSTIMESTAMP 대응
         nullable=False,
+        comment="생성 시각",
     )
-    updated_at = Column(
+
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
-        nullable=True,  # DDL에서도 nullable임
+        nullable=True,  # DDL에서도 nullable
         onupdate=func.now(),  # UPDATE 시 자동 갱신
+        comment="수정 시각",
     )
 
     # 테이블 제약 조건 및 인덱스
@@ -161,7 +198,7 @@ class Document(Base):
         Index("ix_documents_project_type", "project_id", "type"),
     )
 
-    project = relationship(
+    project: Mapped["Project"] = relationship(
         "Project",
         back_populates="documents",
     )
@@ -170,17 +207,19 @@ class Document(Base):
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
-    id = Column(Integer, primary_key=True, comment="채팅 세션 고유 ID")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True, comment="채팅 세션 고유 ID"
+    )
 
-    file_type = Column(
+    file_type: Mapped[str] = mapped_column(
         String(20), nullable=False, comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)"
     )
 
-    file_id = Column(Integer, nullable=False, comment="연결된 파일 ID")
+    file_id: Mapped[int] = mapped_column(Integer, nullable=False, comment="연결된 파일 ID")
 
-    user_id = Column(String(120), nullable=False, comment="세션 소유자 ID")
+    user_id: Mapped[str] = mapped_column(String(120), nullable=False, comment="세션 소유자 ID")
 
-    created_at = Column(
+    created_at: Mapped[Any] = mapped_column(
         TIMESTAMP(timezone=True),
         server_default=text("SYSTIMESTAMP"),
         nullable=False,
@@ -191,24 +230,27 @@ class ChatSession(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="메시지 고유 ID")
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, comment="메시지 고유 ID")
 
-    session_id = Column(
-        Integer,
+    session_id: Mapped[int] = mapped_column(
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),
         nullable=False,
         comment="연결된 채팅 세션 ID",
     )
 
-    role = Column(String(50), nullable=False, comment="메시지 주체 (user, assistant, system, tool)")
+    role: Mapped[str] = mapped_column(
+        String(50), nullable=False, comment="메시지 주체 (user, assistant, system, tool)"
+    )
 
-    user_id = Column(String(120), nullable=True, comment="사용자 ID")
+    user_id: Mapped[str] = mapped_column(String(120), nullable=True, comment="사용자 ID")
 
-    content = Column(CLOB, nullable=True, comment="메시지 내용 (텍스트)")
+    content: Mapped[str | None] = mapped_column(Text, nullable=True, comment="메시지 내용 (텍스트)")
 
-    tool_calls_json = Column(CLOB, nullable=True, comment="AI tool 호출 정보(JSON 문자열)")
+    tool_calls_json: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="AI tool 호출 정보(JSON 문자열)"
+    )
 
-    created_at = Column(
+    created_at = mapped_column(
         TIMESTAMP(timezone=True),
         server_default=text("SYSTIMESTAMP"),
         nullable=False,

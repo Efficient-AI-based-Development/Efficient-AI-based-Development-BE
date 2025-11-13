@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any
+from typing import Any, TypeVar
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
@@ -49,7 +49,8 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
         buf = []
         buf.append("=== SYSTEM CONTEXT ===\n")
 
-        buf.append("system : " + history[0].content)
+        system_content = history[0].content or ""
+        buf.append(f"system : {system_content}")
         buf.append("\n")
 
         # HISTORY
@@ -151,7 +152,10 @@ def _safe_commit(db: Session) -> None:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-def _flush_and_refresh(db: Session, obj: Any) -> Any:
+T = TypeVar("T")
+
+
+def _flush_and_refresh(db: Session, obj: T) -> T:
     """flush/refresh 래퍼(에러 → 500)."""
     try:
         db.flush()
@@ -209,8 +213,9 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
 
 
 def store_document_content(
-    user_id: str, cur_chat_session: ChatSession, content_md: str, db: Session
+    user_id: str, cur_chat_session: ChatSession, content_md: str | None, db: Session
 ):
+    content_md = content_md or ""
     file_type = cur_chat_session.file_type
     file_id = cur_chat_session.file_id
     if file_type == "PROJECT":
@@ -345,7 +350,7 @@ def create_and_check_file_id(
 
 
 def create_chat_session(user_id: str, file: Any, file_type: str, db: Session) -> ChatSession:
-    if isinstance(file, (Project, Document, Task)):
+    if isinstance(file, (Project | Document | Task)):
         target_file_id = file.id
     else:
         raise _http_400(f"Unsupported file type for session: {type(file)}")
@@ -432,12 +437,12 @@ def check_file_exist_repo(
     # type = project인 경우 project 수정임
     if request.file_type is FileType.project:
         try:
-            file = (
+            proj = (
                 db.query(Project)
                 .filter(Project.owner_id == user_id, Project.id == request.project_id)
                 .one()
             )
-            return file, "PROJECT"
+            return proj, "PROJECT"
         except NoResultFound:
             return None, "PROJECT"
 
@@ -445,7 +450,7 @@ def check_file_exist_repo(
     else:
         if request.file_type in (FileType.prd, FileType.userstory, FileType.srs):
             doc_type = request.file_type.value.upper()
-            file = (
+            doc: Document | None = (
                 db.query(Document)
                 .filter(
                     Document.author_id == user_id,
@@ -454,7 +459,7 @@ def check_file_exist_repo(
                 )
                 .one_or_none()
             )
-            return file, doc_type
+            return doc, doc_type
 
         elif request.file_type is FileType.task:  # task일 경우
             """

@@ -93,7 +93,7 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
     out_q = SESSION_OUT.setdefault(chat_session_id, asyncio.Queue())
     cancel_ev = SESSION_CANCEL.setdefault(chat_session_id, asyncio.Event())
 
-    TIMEOUT = 300
+    timeout = 300
 
     async def event_gen():
         try:
@@ -106,7 +106,7 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
                     break
 
                 try:
-                    token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
+                    token = await asyncio.wait_for(out_q.get(), timeout=timeout)
                 except TimeoutError:
                     yield {"event": "timeout", "data": "no tokens, stream closed"}
                     cancel_ev.set()

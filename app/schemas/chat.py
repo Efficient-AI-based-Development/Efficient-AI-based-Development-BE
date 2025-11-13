@@ -35,4 +35,4 @@ class StoreFileResponse(BaseModel):
     ok: bool
     file_type: str
     file_id: int
-    updated_at: datetime
+    updated_at: datetime | None = None

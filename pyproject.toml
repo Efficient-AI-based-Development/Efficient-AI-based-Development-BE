@@ -51,11 +51,12 @@ target-version = ["py311"]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
+ignore_missing_imports = true
+
 
 [project.scripts]
 fastmcp = "fastmcp_cli:app"
 
 [tool.ruff.lint.per-file-ignores]
-"app/api/v1/routes/chats.py" = ["N806"]
 "app/api/v1/routes/mcp.py" = ["E501"]
 "app/domain/mcp/service.py" = ["E501"]
