@@ -294,21 +294,20 @@ FastAPI 자동 생성 문서 확인:
 #### 프로젝트 (Projects)
 
 ```bash
-GET    /api/v1/projects              # 목록 조회
-POST   /api/v1/projects              # 생성
-GET    /api/v1/projects/{id}         # 조회
-PATCH  /api/v1/projects/{id}         # 수정
-DELETE /api/v1/projects/{id}         # 삭제
+GET    /api/v1/projects?q=&page=&pageSize=  # 목록 조회
+POST   /api/v1/projects                     # 생성
+GET    /api/v1/projects/{projectID}         # 조회
+PATCH  /api/v1/projects/{projectID}         # 수정
+DELETE /api/v1/projects/{projectID}         # 삭제
 ```
 
 #### 문서 (Documents)
 
 ```bash
-POST   /api/v1/docs/{id}/rewrite     # AI 문서 수정
-POST   /api/v1/docs/{id}/rewrite/full # AI 문서 전체 수정
-GET    /api/v1/docs/{id}             # 조회
-PATCH  /api/v1/docs/{id}             # 수정
-DELETE /api/v1/docs/{id}             # 삭제
+POST   /api/v1/projects/{projectID}                 # 문서 생성
+GET    /api/v1/projects/{projectID}/docs/{type}     # 조회
+GET    /api/v1/projects/{projectID}/docs/           # 목록 조회
+PATCH  /api/v1/projects/{projectID}/docs/{type}     # 수정
 ```
 
 #### 태스크 (Tasks)
@@ -319,6 +318,16 @@ GET    /api/v1/projects/{id}/tasks   # 목록
 GET    /api/v1/tasks/{id}            # 조회
 PATCH  /api/v1/tasks/{id}            # 수정
 DELETE /api/v1/tasks/{id}            # 삭제
+```
+
+#### 채팅 (Chat)
+
+```bash
+POST   /api/v1/chats                              # 채팅 세션 생성
+POST   /api/v1/chats/{chat_session_id}/cancel     # 채팅 세션 종료
+POST   /api/v1/chats/{chat_session_id}/messages   # 채팅 메시지 입력
+GET    /api/v1/chats/{chat_session_id}/stream     # 채팅 출력 (SEE 연결)
+POST   /api/v1/chats/{chat_session_id}/store      # AI 문서 작성
 ```
 
 #### MCP (Model Context Protocol)
