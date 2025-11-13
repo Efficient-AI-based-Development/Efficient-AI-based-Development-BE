@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session  # type: ignore
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db import models
-from app.domain.mcp.providers import ChatGPTProvider, ClaudeProvider
+from app.domain.mcp.providers import ChatGPTProvider, ClaudeProvider, CursorProvider
 
 from app.schemas.mcp import (
     MCPConnectionCreate,
@@ -710,6 +710,22 @@ class MCPService:
             run.result = self._dump_json(result_payload)
             run.status = "succeeded"
             run.message = "Claude 응답이 fastMCP를 통해 생성되었습니다."
+        elif provider_type == "cursor":
+            if not settings.fastmcp_base_url or not settings.fastmcp_token:
+                raise ValidationError(
+                    "Cursor 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요."
+                )
+            # Cursor는 OpenAI 기반이므로 기본 모델 사용
+            provider = CursorProvider(
+                base_url=settings.fastmcp_base_url,
+                token=settings.fastmcp_token,
+                model=settings.openai_model,
+            )
+            provider_arguments = self._build_chat_arguments(payload)
+            result_payload = provider.run(provider_arguments)
+            run.result = self._dump_json(result_payload)
+            run.status = "succeeded"
+            run.message = "Cursor 응답이 fastMCP를 통해 생성되었습니다."
         else:
             run.result = self._dump_json(
                 {

@@ -104,3 +104,21 @@ class ClaudeProvider(_BaseFastMCPProvider):
         )
 
 
+class CursorProvider(_BaseFastMCPProvider):
+    """fastMCP Cursor provider.
+    
+    Cursor extension이 백엔드 API를 호출하면,
+    백엔드에서 fastMCP 서버를 통해 처리합니다.
+    """
+
+    def __init__(self, base_url: str, token: str, model: str = "gpt-4o-mini", timeout: float = 60.0) -> None:
+        # Cursor는 기본적으로 OpenAI를 사용하므로 openai provider 사용
+        super().__init__(
+            base_url=base_url,
+            token=token,
+            model=model,
+            provider_key="openai",  # Cursor는 OpenAI 기반이므로 openai 사용
+            timeout=timeout,
+        )
+
+
