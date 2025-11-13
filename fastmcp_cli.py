@@ -19,6 +19,7 @@ PROJECT_FILE = PROJECT_DIR / "project.json"
 PROVIDER_MAP = {
     "chatgpt": ("openai", "gpt-4o-mini"),
     "claude": ("anthropic", "claude-3-sonnet"),
+    "cursor": ("openai", "gpt-4o-mini"),  # Cursor는 OpenAI 기반
 }
 
 
