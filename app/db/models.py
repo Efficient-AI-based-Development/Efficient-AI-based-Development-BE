@@ -268,8 +268,17 @@ class Task(Base):
         project_id: 프로젝트 외래키
         title: 태스크 제목
         description: 태스크 설명 (CLOB)
-        status: 태스크 상태 (VARCHAR2 + CHECK: 'pending', 'in_progress', 'completed', 'blocked')
-        priority: 우선순위 (VARCHAR2 + CHECK: 'low', 'medium', 'high', 'urgent')
+        description_md: 태스크 설명 마크다운 (CLOB)
+        type: 태스크 타입 (VARCHAR2 + CHECK: 'feat', 'bug', 'docs', 'design', 'refactor')
+        source: 태스크 생성 소스 (VARCHAR2 + CHECK: 'MCP', 'USER', 'AI')
+        status: 태스크 상태 (VARCHAR2 + CHECK: 'todo', 'in_progress', 'review', 'done')
+        priority: 우선순위 (INTEGER, 0-10)
+        tags: 태그 목록 (CLOB, JSON 배열 문자열)
+        due_at: 마감일 (TIMESTAMP)
+        result_files: 생성/수정된 파일 목록 (CLOB, JSON 배열 문자열)
+        summary: 작업 요약 (CLOB)
+        duration: 작업 소요 시간 (초 단위, INTEGER)
+        result_logs: 결과 로그 (CLOB, 마크다운 형식)
         created_at: 생성 시간
         updated_at: 수정 시간
 
@@ -281,46 +290,95 @@ class Task(Base):
 
     __tablename__ = "tasks"
 
-    id = Column(
+    id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True,
         comment="태스크 ID",
     )
-    project_id = Column(
-        Integer,
+    project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         comment="프로젝트 외래키",
     )
-    title = Column(
+    title: Mapped[str] = mapped_column(
         String(500),
         nullable=False,
         comment="태스크 제목",
     )
-    description = Column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         comment="태스크 설명 (CLOB)",
     )
-    status = Column(
+    description_md: Mapped[str | None] = mapped_column(
+        CLOB,
+        comment="태스크 설명 마크다운 (CLOB)",
+    )
+    type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default="pending",
+        default="feat",
+        comment="태스크 타입",
+    )
+
+    source: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="USER",
+        comment="태스크 생성 소스",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="todo",
         comment="태스크 상태",
     )
-    priority = Column(
-        String(50),
+
+    priority: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
-        default="medium",
-        comment="우선순위",
+        default=5,
+        comment="우선순위 (0-10)",
     )
-    created_at = Column(
+    tags: Mapped[str | None] = mapped_column(
+        CLOB,
+        comment="태그 목록 (JSON 배열 문자열)",
+    )
+
+    due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        comment="마감일",
+    )
+
+    result_files: Mapped[str | None] = mapped_column(
+        CLOB,
+        comment="생성/수정된 파일 목록 (JSON 배열 문자열)",
+    )
+
+    summary: Mapped[str | None] = mapped_column(
+        CLOB,
+        comment="작업 요약",
+    )
+
+    duration: Mapped[int | None] = mapped_column(
+        Integer,
+        comment="작업 소요 시간 (초 단위)",
+    )
+
+    result_logs: Mapped[str | None] = mapped_column(
+        CLOB,
+        comment="결과 로그 (마크다운 형식)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         default=datetime.utcnow,
         comment="생성 시간",
     )
-    updated_at = Column(
+
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         default=datetime.utcnow,
@@ -328,26 +386,46 @@ class Task(Base):
         comment="수정 시간",
     )
 
+    # ------------------------------------------------------------------
     # Relationships
-    project = relationship("Project", back_populates="tasks")
-    parent_links = relationship(
+    # ------------------------------------------------------------------
+
+    project: Mapped["Project"] = relationship(
+        "Project",
+        back_populates="tasks",
+    )
+
+    parent_links: Mapped[list["TaskLink"]] = relationship(
         "TaskLink",
         foreign_keys="TaskLink.parent_task_id",
         back_populates="parent_task",
     )
-    child_links = relationship(
+
+    child_links: Mapped[list["TaskLink"]] = relationship(
         "TaskLink",
         foreign_keys="TaskLink.child_task_id",
         back_populates="child_task",
     )
 
+    # ------------------------------------------------------------------
+    # Table Constraints
+    # ------------------------------------------------------------------
+
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'in_progress', 'completed', 'blocked')",
+            "status IN ('todo', 'in_progress', 'review', 'done')",
             name="chk_task_status",
         ),
         CheckConstraint(
-            "priority IN ('low', 'medium', 'high', 'urgent')",
+            "type IN ('feat', 'bug', 'docs', 'design', 'refactor')",
+            name="chk_task_type",
+        ),
+        CheckConstraint(
+            "source IN ('MCP', 'USER', 'AI')",
+            name="chk_task_source",
+        ),
+        CheckConstraint(
+            "priority >= 0 AND priority <= 10",
             name="chk_task_priority",
         ),
     )

@@ -5,6 +5,7 @@ repos:
     hooks:
       - id: ruff
         args: ["--fix"]         # 가능하면 자동 수정
+        exclude: ^alembic/
 
   # Black (원하면 Ruff-format 대신/추가로 사용)
   - repo: https://github.com/psf/black
@@ -12,5 +13,6 @@ repos:
     hooks:
       - id: black
         args: ["app", "tests"]
+        exclude: ^alembic/
 
 
