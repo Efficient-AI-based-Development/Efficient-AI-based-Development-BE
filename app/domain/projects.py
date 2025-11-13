@@ -19,9 +19,7 @@ from app.schemas.project import (
 )
 
 
-#################################################################################################################################################################
-########################################################################### 서비스 정의 ###########################################################################
-#################################################################################################################################################################
+##################### 서비스 정의 #####################
 def get_project_service(project_id: int, db: Session) -> ProjectRead:
     try:
         project = get_project_by_id(project_id, db)
@@ -67,7 +65,11 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
         if page > total_pages:
             raise HTTPException(
                 status_code=400,
-                detail=f"page는 최대 {total_pages}까지입니다. (total={total}, pageSize={params.page_size})",
+                detail={
+                    "message": f"page는 최대 {total_pages}까지입니다.",
+                    "total": total,
+                    "page_size": params.page_size,
+                },
             )
 
         projects: list[ProjectRead] = [to_project_read(p) for p in projects_orm]
@@ -80,12 +82,12 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
         )
 
 
-def to_project_read(project):
+def to_project_read(project) -> ProjectRead:
     json_content = None
     if project.content_md:
         try:
             json_content = json.loads(project.content_md)
-        except:
+        except Exception:
             json_content = None
 
     return ProjectRead(**project.__dict__, content_md_json=json_content)
@@ -140,14 +142,17 @@ def get_pagination_params(
     if page > page_size:
         raise HTTPException(
             status_code=400,
-            detail=f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다. (page={page}, pageSize={page_size})",
+            detail=(
+                f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다."
+                f"(page={page}, page_size={page_size})"
+            ),
         )
     return PaginationParams(q=q, page_size=page_size, page=page)
 
 
-#################################################################################################################################################################
-########################################################################### REPO 관리 ############################################################################
-#################################################################################################################################################################
+##################### REPO 관리 #####################
+
+
 def get_project_by_id(project_id: int, db: Session) -> Project:
     project = db.query(Project).filter(Project.id == project_id).one()
     return project

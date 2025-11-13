@@ -20,39 +20,41 @@ from app.schemas.document import (
 router = APIRouter(prefix="", tags=["documents"])
 
 
-@router.post("/projects/{projectID}/", response_model=DocumentRead, status_code=201)
+@router.post("/projects/{project_id}/", response_model=DocumentRead, status_code=201)
 def create_document(
-    projectID: int,
+    project_id: int,
     request: DocumentCreateRequest,
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return create_document_service(project_id=projectID, user_id=user_id, request=request, db=db)
+    return create_document_service(project_id=project_id, user_id=user_id, request=request, db=db)
 
 
-@router.get("/projects/{projectID}/docs/{type}", response_model=DocumentRead, status_code=200)
+@router.get("/projects/{project_id}/docs/{type}", response_model=DocumentRead, status_code=200)
 def get_document(
-    projectID: int,
+    project_id: int,
     type: str,
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return get_document_service(project_id=projectID, type=type, user_id=user_id, db=db)
+    return get_document_service(project_id=project_id, type=type, user_id=user_id, db=db)
 
 
-@router.patch("/projects/{projectID}/docs/{type}", response_model=DocumentRead, status_code=200)
+@router.patch("/projects/{project_id}/docs/{type}", response_model=DocumentRead, status_code=200)
 def update_document(
-    projectID: int,
+    project_id: int,
     type: str,
     request: DocumentUpdateRequest,
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return update_project_service(project_id=projectID, type=type, user_id=user_id, request=request, db=db)
+    return update_project_service(
+        project_id=project_id, type=type, user_id=user_id, request=request, db=db
+    )
 
 
-@router.get("/projects/{projectID}/docs", response_model=DocumentPage, status_code=200)
+@router.get("/projects/{project_id}/docs", response_model=DocumentPage, status_code=200)
 def get_document_list(
-    projectID: int, user_id: str = Header(..., alias="X-User-ID"), db: Session = Depends(get_db)
+    project_id: int, user_id: str = Header(..., alias="X-User-ID"), db: Session = Depends(get_db)
 ):
-    return get_document_list_service(project_id=projectID, user_id=user_id, db=db)
+    return get_document_list_service(project_id=project_id, user_id=user_id, db=db)

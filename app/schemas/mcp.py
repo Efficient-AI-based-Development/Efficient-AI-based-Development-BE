@@ -31,8 +31,7 @@ class MCPConnectionCreate(BaseModel):
     env: dict[str, Any] | None = Field(
         default=None,
         description=(
-            "연결 시 필요한 환경 변수(JSON). "
-            "API 키 등 민감정보는 서버/시크릿에서 관리 권장"
+            "연결 시 필요한 환경 변수(JSON). " "API 키 등 민감정보는 서버/시크릿에서 관리 권장"
         ),
         examples=[{"OPENAI_API_KEY": "sk-***"}],
     )
@@ -273,10 +272,7 @@ class MCPRunCreate(BaseModel):
     )
     input: dict[str, Any] = Field(
         ...,
-        description=(
-            "실행 입력 데이터(JSON). "
-            "모드에 따라 메시지, 파라미터 등 구조가 달라짐"
-        ),
+        description=("실행 입력 데이터(JSON). " "모드에 따라 메시지, 파라미터 등 구조가 달라짐"),
         examples=[{"messages": [{"role": "user", "content": "이번 sprint 요약해줘"}]}],
     )
 

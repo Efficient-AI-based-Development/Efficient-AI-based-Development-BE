@@ -1,0 +1,16 @@
+repos:
+  # Ruff (lint + 일부 자동수정)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9  # 사용 가능한 최신 태그로 바꿔도 됨
+    hooks:
+      - id: ruff
+        args: ["--fix"]         # 가능하면 자동 수정
+
+  # Black (원하면 Ruff-format 대신/추가로 사용)
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        args: ["app", "tests"]
+
+

@@ -30,7 +30,7 @@ from sqlalchemy import (  # type: ignore
     func,
     text,
 )
-from sqlalchemy.orm import relationship  # type: ignore
+from sqlalchemy.orm import Mapped, mapped_column, relationship  # type: ignore
 
 from app.db.database import Base
 
@@ -58,63 +58,45 @@ class Project(Base):
 
     __tablename__ = "projects"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        comment="프로젝트 고유 ID",
+    id: Mapped[int] = mapped_column(primary_key=True, comment="프로젝트 고유 ID")
+    project_idx: Mapped[int] = mapped_column(nullable=False, comment="user별 프로젝트 idx")
+    title: Mapped[str] = mapped_column(String(200), nullable=False, comment="프로젝트 제목")
+    content_md: Mapped[str] = mapped_column(comment="프로젝트 내용")
+    status: Mapped[str] = mapped_column(
+        String(30), nullable=False, server_default=text("'in_progress'"), comment="프로젝트 상태"
     )
-    project_idx = Column(Integer, nullable=False, comment="user별 프로젝트 idx")
-    title = Column(
-        String(200),
-        nullable=False,
-        comment="프로젝트 제목",
-    )
-    content_md = Column(
-        String,
-        comment="프로젝트 내용",
-    )
-    status = Column(
-        String(30),
-        nullable=False,
-        server_default=text("'in_progress'"),
-        comment="프로젝트 상태",
-    )
-    owner_id = Column(String(120), comment="프로젝트 소유자")
-    created_at = Column(
+    owner_id: Mapped[str] = mapped_column(String(120), comment="프로젝트 소유자")
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("SYSTIMESTAMP"),
         nullable=False,
         comment="생성 시간",
     )
 
-    updated_at = Column(
-        DateTime,
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,  # 기존 그대로 timezone 옵션 없이 유지
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         comment="수정 시간",
     )
 
     # Relationships
-    documents = relationship(
-        "Document",
+    documents: Mapped[list["Document"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
         passive_deletes=True,  # DB에 ON DELETE CASCADE 있으면 이걸 켜면 추가 DELETE 안 날림
     )
-    tasks = relationship(
-        "Task",
+    tasks: Mapped[list["Task"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    gen_jobs = relationship(
-        "GenJob",
+    gen_jobs: Mapped[list["GenJob"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    mcp_connections = relationship(
-        "MCPConnection",
+    mcp_connections: Mapped[list["MCPConnection"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -123,7 +105,8 @@ class Project(Base):
     # Check constraints
     __table_args__ = (
         CheckConstraint(
-            "status IN ('not_started','in_progress','completed')", name="ck_projects_status"
+            "status IN ('not_started','in_progress','completed')",
+            name="ck_projects_status",
         ),
     )
 
@@ -402,8 +385,10 @@ class GenJob(Base):
     Attributes:
         id: 작업 ID
         project_id: 프로젝트 외래키
-        job_type: 작업 타입 (VARCHAR2 + CHECK: 'code_generation', 'document_generation', 'test_generation')
-        status: 작업 상태 (VARCHAR2 + CHECK: 'pending', 'running', 'completed', 'failed', 'cancelled')
+        job_type: 작업 타입 (VARCHAR2 + CHECK:
+         'code_generation', 'document_generation', 'test_generation')
+        status: 작업 상태 (VARCHAR2 + CHECK:
+         'pending', 'running', 'completed', 'failed', 'cancelled')
         result: 생성 결과 (CLOB)
         created_at: 생성 시간
         updated_at: 수정 시간
@@ -462,11 +447,13 @@ class GenJob(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "job_type IN ('code_generation', 'document_generation', 'test_generation', 'refactoring')",
+            "job_type IN ("
+            "'code_generation', 'document_generation', 'test_generation', 'refactoring'"
+            ")",
             name="chk_gen_job_type",
         ),
         CheckConstraint(
-            "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
+            "status IN (" "'pending', 'running', 'completed', 'failed', 'cancelled'" ")",
             name="chk_gen_job_status",
         ),
     )
@@ -636,7 +623,8 @@ class MCPRun(Base):
         session_id: 세션 외래키
         tool_name: 툴 이름 (선택적)
         prompt_name: 프롬프트 이름 (선택적)
-        status: 실행 상태 (VARCHAR2 + CHECK: 'pending', 'running', 'completed', 'failed', 'cancelled')
+        status: 실행 상태 (VARCHAR2 + CHECK:
+         'pending', 'running', 'completed', 'failed', 'cancelled')
         result: 실행 결과 (CLOB)
         arguments: 실행 인자 (JSON 형태로 저장, Text 타입)
         progress: 진행률 (0-1, String)
@@ -719,7 +707,9 @@ class MCPRun(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'cancelled')",
+            "status IN ("
+            "'pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'cancelled'"
+            ")",
             name="chk_mcp_run_status",
         ),
     )
