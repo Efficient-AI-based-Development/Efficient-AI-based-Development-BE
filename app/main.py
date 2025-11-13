@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.routes import router as v1_router
 from app.core.config import settings
@@ -29,8 +30,6 @@ app = FastAPI(
 setup_cors(app)
 
 # 예외 핸들러 등록
-from sqlalchemy.exc import SQLAlchemyError
-
 app.add_exception_handler(SQLAlchemyError, database_exception_handler)
 app.add_exception_handler(AppError, app_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
