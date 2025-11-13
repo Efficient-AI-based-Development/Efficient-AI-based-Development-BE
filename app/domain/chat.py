@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 from fastapi import HTTPException
 from sqlalchemy.exc import NoResultFound, IntegrityError, SQLAlchemyError
@@ -80,7 +80,7 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
                 prompt = build_prompt(session_id, user_message, db)
 
                 # 여기서는 가짜 스트리밍
-                assembled: list[str] = []
+                assembled: List[str] = []
                 for token in prompt:
                     if cancel_ev.is_set():    # 스트림 도중 취소되면 즉시 중단
                         break
@@ -96,10 +96,14 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
 
                 # 어시스턴트 전체 응답 저장
                 full_text = "".join(assembled)
-                db.add(ChatMessage(
-                    session_id=session_id, role="assistant",
-                    content=full_text, user_id=user_id
-                ))
+                db.add(
+                    ChatMessage(
+                        session_id=session_id,
+                        role="assistant",
+                        content=full_text,
+                        user_id=user_id,
+                    )
+                )
                 _safe_commit(db)
 
         except asyncio.CancelledError:
@@ -156,13 +160,22 @@ def _ensure_enum(ft: FileType | str) -> FileType:
 
 
 ######################################### SERVICE #############################################
-def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, db: Session):
-    cur_chat_session = db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id).one_or_none()
+def apply_ai_last_message_to_content_service(
+    user_id: str, chat_session_id: int, db: Session
+):
+    cur_chat_session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id)
+        .one_or_none()
+    )
     if cur_chat_session is None:
         raise HTTPException(404, "Chat session not found")
-    last_assistant_message = (db.query(ChatMessage).filter(ChatMessage.session_id == chat_session_id, ChatMessage.role == "assistant")
-                              .order_by(ChatMessage.id.desc())
-                              .first())
+    last_assistant_message = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == chat_session_id, ChatMessage.role == "assistant")
+        .order_by(ChatMessage.id.desc())
+        .first()
+    )
     if not last_assistant_message:
         raise _http_404("No assistant message found for this session.")
     updated_obj = store_document_content(user_id, cur_chat_session, last_assistant_message.content, db)
@@ -203,7 +216,12 @@ def store_document_content(user_id: str, cur_chat_session: ChatSession, content_
         raise _http_400(f"Unsupported file_type: {file_type}")
 
 
-def create_chat_session_with_message_service(user_id: str, user_message: str, request: ChatSessionCreateRequest, db: Session):
+def create_chat_session_with_message_service(
+    user_id: str,
+    user_message: str,
+    request: ChatSessionCreateRequest,
+    db: Session,
+):
     # 입력 검증
     if not user_id:
         raise _http_400("X-User-ID header required.")
@@ -218,15 +236,21 @@ def create_chat_session_with_message_service(user_id: str, user_message: str, re
 
 
 
-    # file(생성) 상위 file content를 chat message에 미리 등록, cf) Project -> 입력X, userstory -> project, prd 내용 등록
-    # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록, cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
+    # file(생성) 상위 file content를 chat message에 미리 등록
+    # cf) Project -> 입력X, userstory -> project, prd 내용 등록
+    # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록
+    # cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
     attached_info_to_chat(user_id, chat_session.id, file, file_type, db)
 
     # 사용자 발화 저장
-    db.add(ChatMessage(
-        session_id=chat_session.id, role="user",
-        content=user_message, user_id=user_id
-    ))
+    db.add(
+        ChatMessage(
+            session_id=chat_session.id,
+            role="user",
+            content=user_message,
+            user_id=user_id,
+        )
+    )
 
     return ChatSessionCreateResponse(
         chat_id=chat_session.id,
@@ -252,19 +276,26 @@ def attached_info_to_chat(user_id: str, chat_session_id: int, file: Any, file_ty
 
 
 def create_chat_message(user_id: str, chat_session_id: int, role: str, content: str, db: Session) -> ChatMessage:
-    chat_message = ChatMessage(user_id = user_id, session_id = chat_session_id, role = role, content = content)
+    chat_message = ChatMessage(
+        user_id=user_id, session_id=chat_session_id, role=role, content=content
+    )
     chat_message = create_chat_message_repo(chat_message, db)
     db.commit()
     return chat_message
 
-def create_and_check_file_id(user_id: str, request: ChatSessionCreateRequest, db: Session) -> Tuple[Any, str]:
+def create_and_check_file_id(
+    user_id: str, request: ChatSessionCreateRequest, db: Session
+) -> Tuple[Any, str]:
     # project_id = -1 인 경우 -> 프로젝트 생성
     if request.project_id == -1:
         if request.file_type is FileType.project:
             file, file_type = create_file_repo(user_id, request, db)
         else:
-            raise _http_400("project_id = -1 은 PROJECT 생성에만 사용할 수 있습니다. 문서/태스크는 기존 project_id가 필요합니다.")
-    else: # 파일 존재 확인
+            raise _http_400(
+                "project_id = -1 은 PROJECT 생성에만 사용할 수 있습니다. "
+                "문서/태스크는 기존 project_id가 필요합니다."
+            )
+    else:  # 파일 존재 확인
 
         # Step 1. 프로젝트 존재 여부 + 권한 체크
         project = db.query(Project).filter(
@@ -291,7 +322,9 @@ def create_and_check_file_id(user_id: str, request: ChatSessionCreateRequest, db
     db.commit()
     return file, file_type
 
-def create_chat_session(user_id: str, file: Any, file_type:str, db: Session) -> ChatSession:
+def create_chat_session(
+    user_id: str, file: Any, file_type: str, db: Session
+) -> ChatSession:
     if isinstance(file, (Project, Document, Task)):
         target_file_id = file.id
     else:
@@ -311,10 +344,12 @@ def create_chat_session(user_id: str, file: Any, file_type:str, db: Session) -> 
 
 ######################################### REPO #############################################
 
-def insert_file_info_repo(user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session):
-    parts: list[str] = []
+def insert_file_info_repo(
+    user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session
+):
+    parts: List[str] = []
 
-    def _get_doc(t: str) -> str | None:
+    def _get_doc(t: str) -> Optional[str]:
         d = db.query(Document).filter_by(author_id=user_id, project_id=proj_id, type=t).one_or_none()
         return getattr(d, "content_md", None) if d else None
 
@@ -340,7 +375,14 @@ def insert_file_info_repo(user_id: str, chat_session_id: int, file: Any, file_ty
 
     content = "\n\n---\n".join([p for p in parts if p])
     if content:
-        db.add(ChatMessage(session_id=chat_session_id, role="system", user_id=user_id, content=content))
+        db.add(
+            ChatMessage(
+                session_id=chat_session_id,
+                role="system",
+                user_id=user_id,
+                content=content,
+            )
+        )
 
 
 
@@ -354,7 +396,9 @@ def create_chat_message_repo(chat_message: ChatMessage, db: Session) -> ChatMess
 
 
 
-def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> Tuple[Any, str] | Tuple[None, str]:
+def check_file_exist_repo(
+    user_id: str, request: ChatSessionCreateRequest, db: Session
+) -> Union[Tuple[Any, str], Tuple[None, str]]:
     # request body의 project id와 file_type 조합으로 유무 판별
 
     # type = project인 경우 project 수정임
@@ -392,9 +436,11 @@ def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: S
             raise _http_400(f"Unsupported file_type: {request.file_type}")
 
 
-def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> Tuple[Any, str]:
+def create_file_repo(
+    user_id: str, request: ChatSessionCreateRequest, db: Session
+) -> Tuple[Any, str]:
 
-    if request.file_type in FileType.project:
+    if request.file_type is FileType.project:
         file = Project(
             title="New Project",
             owner_id=user_id,
