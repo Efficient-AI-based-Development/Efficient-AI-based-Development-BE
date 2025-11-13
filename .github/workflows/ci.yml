@@ -62,7 +62,7 @@ jobs:
         run: pip install uv
 
       - name: Install dependencies
-        run: uv pip install --system mypy types-all
+        run: uv pip install --system mypy
 
       - name: Run MyPy
         run: mypy app/
@@ -83,7 +83,7 @@ jobs:
         run: pip install uv
 
       - name: Install dependencies
-        run: uv pip install --system pytest pytest-asyncio httpx
+        run: uv pip install --system pytest pytest-asyncio httpx fastapi
 
       - name: Run tests
         run: pytest tests/ -v
