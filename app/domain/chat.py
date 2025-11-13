@@ -39,10 +39,12 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
 
     def build_prompt(session_id: int, new_message: str, db: Session):
 
-        history = db.query(ChatMessage) \
-            .filter(ChatMessage.session_id == session_id) \
-            .order_by(ChatMessage.id.asc()) \
+        history = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.id.asc())
             .all()
+        )
 
         buf = []
         buf.append("=== SYSTEM CONTEXT ===\n")
@@ -73,7 +75,6 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
 
                 user_message = await in_q.get()
 
-
                 # 내부 프로토콜: [[CANCEL]] 메시지를 받으면 종료
                 if user_message == "[[CANCEL]]":
                     break
@@ -87,13 +88,13 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
                 # 여기서는 가짜 스트리밍
                 assembled: list[str] = []
                 for token in prompt:
-                    if cancel_ev.is_set():    # 스트림 도중 취소되면 즉시 중단
+                    if cancel_ev.is_set():  # 스트림 도중 취소되면 즉시 중단
                         break
                     await asyncio.sleep(0.05)
                     assembled.append(token)
                     await out_q.put(token)
 
-                await out_q.put("[[END]]")   # 턴 종료 이벤트
+                await out_q.put("[[END]]")  # 턴 종료 이벤트
 
                 # 취소가 중간에 들어왔으면 저장 스킵
                 if cancel_ev.is_set():
@@ -121,16 +122,18 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
     SESSION_TASK[session_id] = asyncio.create_task(worker())
 
 
-
 # ---------------------- 공통 유틸 ----------------------
 def _http_400(msg: str) -> HTTPException:
     return HTTPException(status_code=400, detail=msg)
 
+
 def _http_403(msg: str) -> HTTPException:
     return HTTPException(status_code=403, detail=msg)
 
+
 def _http_404(msg: str) -> HTTPException:
     return HTTPException(status_code=404, detail=msg)
+
 
 def _safe_commit(db: Session) -> None:
     """Commit 실패 시 롤백하고 HTTP 500으로 변환."""
@@ -139,10 +142,14 @@ def _safe_commit(db: Session) -> None:
     except IntegrityError as e:
         db.rollback()
         # 무결성 위반(중복, FK 등)
-        raise HTTPException(status_code=409, detail=f"Integrity error: {str(e.orig) if hasattr(e, 'orig') else str(e)}")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Integrity error: {str(e.orig) if hasattr(e, 'orig') else str(e)}",
+        )
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 
 def _flush_and_refresh(db: Session, obj: Any) -> Any:
     """flush/refresh 래퍼(에러 → 500)."""
@@ -153,6 +160,7 @@ def _flush_and_refresh(db: Session, obj: Any) -> Any:
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database flush error: {str(e)}")
+
 
 def _ensure_enum(ft: FileType | str) -> FileType:
     """문자/enum 혼용 대비."""
@@ -165,9 +173,7 @@ def _ensure_enum(ft: FileType | str) -> FileType:
 
 
 ######################################### SERVICE #############################################
-def apply_ai_last_message_to_content_service(
-    user_id: str, chat_session_id: int, db: Session
-):
+def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, db: Session):
     cur_chat_session = (
         db.query(ChatSession)
         .filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id)
@@ -183,7 +189,9 @@ def apply_ai_last_message_to_content_service(
     )
     if not last_assistant_message:
         raise _http_404("No assistant message found for this session.")
-    updated_obj = store_document_content(user_id, cur_chat_session, last_assistant_message.content, db)
+    updated_obj = store_document_content(
+        user_id, cur_chat_session, last_assistant_message.content, db
+    )
 
     db.commit()
     try:
@@ -196,10 +204,13 @@ def apply_ai_last_message_to_content_service(
         ok=True,
         file_type=cur_chat_session.file_type,
         file_id=cur_chat_session.file_id,
-        updated_at=updated_at
+        updated_at=updated_at,
     )
 
-def store_document_content(user_id: str, cur_chat_session: ChatSession, content_md: str, db: Session):
+
+def store_document_content(
+    user_id: str, cur_chat_session: ChatSession, content_md: str, db: Session
+):
     file_type = cur_chat_session.file_type
     file_id = cur_chat_session.file_id
     if file_type == "PROJECT":
@@ -209,7 +220,13 @@ def store_document_content(user_id: str, cur_chat_session: ChatSession, content_
         return proj
 
     elif file_type in ("PRD", "USER_STORY", "SRS"):
-        doc = db.query(Document).filter(Document.author_id == user_id, Document.id == file_id, Document.type == file_type).one()
+        doc = (
+            db.query(Document)
+            .filter(
+                Document.author_id == user_id, Document.id == file_id, Document.type == file_type
+            )
+            .one()
+        )
         doc.content_md = content_md
         db.add(doc)
         return doc
@@ -239,8 +256,6 @@ def create_chat_session_with_message_service(
     # chat session 생성
     chat_session = create_chat_session(user_id, file, file_type, db)
 
-
-
     # file(생성) 상위 file content를 chat message에 미리 등록
     # cf) Project -> 입력X, userstory -> project, prd 내용 등록
     # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록
@@ -266,27 +281,28 @@ def create_chat_session_with_message_service(
     )
 
 
-
-
-
-
 ######################################### REPO #############################################
 
 
-def attached_info_to_chat(user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session) -> None:
+def attached_info_to_chat(
+    user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session
+) -> None:
     # 문서 내용 작성
     # Project 작성 시
     insert_file_info_repo(user_id, chat_session_id, file, file_type, db)
     db.commit()
 
 
-def create_chat_message(user_id: str, chat_session_id: int, role: str, content: str, db: Session) -> ChatMessage:
+def create_chat_message(
+    user_id: str, chat_session_id: int, role: str, content: str, db: Session
+) -> ChatMessage:
     chat_message = ChatMessage(
         user_id=user_id, session_id=chat_session_id, role=role, content=content
     )
     chat_message = create_chat_message_repo(chat_message, db)
     db.commit()
     return chat_message
+
 
 def create_and_check_file_id(
     user_id: str, request: ChatSessionCreateRequest, db: Session
@@ -303,14 +319,14 @@ def create_and_check_file_id(
     else:  # 파일 존재 확인
 
         # Step 1. 프로젝트 존재 여부 + 권한 체크
-        project = db.query(Project).filter(
-            Project.id == request.project_id,
-            Project.owner_id == user_id
-        ).one_or_none()
+        project = (
+            db.query(Project)
+            .filter(Project.id == request.project_id, Project.owner_id == user_id)
+            .one_or_none()
+        )
         if project is None:
             # 여기서 프로젝트 없으면 세션 생성 금지
             raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
-
 
         file, file_type = check_file_exist_repo(user_id, request, db)
         # file None이면 존재하지 않는 파일 (PRD/USER_STORY/SRS/TASK) -> 파일 생성
@@ -327,9 +343,8 @@ def create_and_check_file_id(
     db.commit()
     return file, file_type
 
-def create_chat_session(
-    user_id: str, file: Any, file_type: str, db: Session
-) -> ChatSession:
+
+def create_chat_session(user_id: str, file: Any, file_type: str, db: Session) -> ChatSession:
     if isinstance(file, (Project, Document, Task)):
         target_file_id = file.id
     else:
@@ -345,9 +360,8 @@ def create_chat_session(
     return chat_session
 
 
-
-
 ######################################### REPO #############################################
+
 
 def insert_file_info_repo(
     user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session
@@ -355,18 +369,30 @@ def insert_file_info_repo(
     parts: list[str] = []
 
     def _get_doc(t: str) -> str | None:
-        d = db.query(Document).filter_by(author_id=user_id, project_id=proj_id, type=t).one_or_none()
+        d = (
+            db.query(Document)
+            .filter_by(author_id=user_id, project_id=proj_id, type=t)
+            .one_or_none()
+        )
         return getattr(d, "content_md", None) if d else None
 
     if isinstance(file, Project):
-        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.id).one_or_none()
+        proj = (
+            db.query(Project)
+            .filter(Project.owner_id == user_id, Project.id == file.id)
+            .one_or_none()
+        )
         if not proj:
             raise _http_404(f"Project {file.id} not found or no permission.")
         proj_id = proj.id
         parts.append(proj.content_md or "")
 
     elif isinstance(file, Document):
-        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.project_id).one_or_none()
+        proj = (
+            db.query(Project)
+            .filter(Project.owner_id == user_id, Project.id == file.project_id)
+            .one_or_none()
+        )
         if not proj:
             raise _http_404(f"Project {file.project_id} not found or no permission.")
         proj_id = proj.id
@@ -390,15 +416,12 @@ def insert_file_info_repo(
         )
 
 
-
-
 def create_chat_message_repo(chat_message: ChatMessage, db: Session) -> ChatMessage:
     try:
         db.add(chat_message)
         return _flush_and_refresh(db, chat_message)
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Failed to create chat message: {str(e)}")
-
 
 
 def check_file_exist_repo(
@@ -409,10 +432,11 @@ def check_file_exist_repo(
     # type = project인 경우 project 수정임
     if request.file_type is FileType.project:
         try:
-            file = db.query(Project).filter(
-                Project.owner_id == user_id,
-                Project.id == request.project_id
-            ).one()
+            file = (
+                db.query(Project)
+                .filter(Project.owner_id == user_id, Project.id == request.project_id)
+                .one()
+            )
             return file, "PROJECT"
         except NoResultFound:
             return None, "PROJECT"
@@ -421,17 +445,20 @@ def check_file_exist_repo(
     else:
         if request.file_type in (FileType.prd, FileType.userstory, FileType.srs):
             doc_type = request.file_type.value.upper()
-            file = (db.query(Document)
-                    .filter(
-                Document.author_id == user_id,
-                Document.project_id == request.project_id,
-                Document.type == doc_type
-            ).one_or_none())
+            file = (
+                db.query(Document)
+                .filter(
+                    Document.author_id == user_id,
+                    Document.project_id == request.project_id,
+                    Document.type == doc_type,
+                )
+                .one_or_none()
+            )
             return file, doc_type
 
-        elif request.file_type is FileType.task: # task일 경우
+        elif request.file_type is FileType.task:  # task일 경우
             """
-                작성해야됨
+            작성해야됨
             """
             file = None
             temp_type = "TASK"
@@ -446,11 +473,7 @@ def create_file_repo(
 ) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
-        file = Project(
-            title="New Project",
-            owner_id=user_id,
-            status="in_progress"
-        )
+        file = Project(title="New Project", owner_id=user_id, status="in_progress")
         try:
             db.add(file)
             _flush_and_refresh(db, file)
@@ -464,10 +487,11 @@ def create_file_repo(
             raise _http_400("문서 생성에는 유효한 project_id가 필요합니다.")
         doc_type = request.file_type.value.upper()
         # 소유 프로젝트인지 확인
-        proj = db.query(Project).filter(
-            Project.owner_id == user_id,
-            Project.id == request.project_id
-        ).one_or_none()
+        proj = (
+            db.query(Project)
+            .filter(Project.owner_id == user_id, Project.id == request.project_id)
+            .one_or_none()
+        )
         if proj is None:
             raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
 
@@ -475,7 +499,7 @@ def create_file_repo(
             project_id=request.project_id,
             title=f"New {doc_type} Document",
             author_id=user_id,
-            type=doc_type
+            type=doc_type,
         )
         try:
             db.add(file)
@@ -491,7 +515,6 @@ def create_file_repo(
 
     else:
         raise _http_400(f"Unsupported file_type: {request.file_type}")
-
 
 
 def store_chat_session_repo(chat: ChatSession, db: Session) -> ChatSession:

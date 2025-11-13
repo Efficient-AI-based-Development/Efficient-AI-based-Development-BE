@@ -43,6 +43,7 @@ async def start_chat_with_init_file(
 
     return resp
 
+
 @router.post("/{chat_session_id}/messages")
 async def send_message(
     chat_session_id: int,
@@ -72,7 +73,6 @@ async def send_message(
         )
     )
     db.commit()
-
 
     # worker 보장
     await ensure_worker(user_id, chat_session_id, db)
@@ -137,10 +137,11 @@ async def cancel_session(
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    session = db.query(ChatSession).filter(
-        ChatSession.id == chat_session_id,
-        ChatSession.user_id == user_id
-    ).first()
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id)
+        .first()
+    )
 
     if session is None:
         # 네 스타일 기준 -> 404 사용
@@ -170,6 +171,7 @@ async def cancel_session(
 
     return {"ok": True}
 
+
 @router.post("/{chat_session_id}/store", response_model=StoreFileResponse, status_code=200)
 def store_file(
     chat_session_id: int,
@@ -177,7 +179,3 @@ def store_file(
     db: Session = Depends(get_db),
 ):
     return apply_ai_last_message_to_content_service(user_id, chat_session_id, db)
-
-
-
-

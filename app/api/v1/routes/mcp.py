@@ -1,6 +1,5 @@
 """MCP (Model Context Protocol) API routes."""
 
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -67,7 +66,7 @@ def list_project_statuses(db: Session = Depends(get_db)):
         "- `providerId`: 연결할 MCP 제공자 (`chatgpt`, `claude`, `cursor` 등)\n"
         "- `projectId`: 연결을 생성할 프로젝트 ID (문자열)\n\n"
         "### 선택 필드\n"
-        "- `config`: 기본 실행 설정 (예: `{ \"model\": \"gpt-4o-mini\", \"temperature\": 0.2 }`). 필요할 때만 사용하세요.\n"
+        '- `config`: 기본 실행 설정 (예: `{ "model": "gpt-4o-mini", "temperature": 0.2 }`). 필요할 때만 사용하세요.\n'
         "- `env`: 내부용 필드입니다. API 키 등 민감 정보는 서버에서 사전 관리하므로 클라이언트가 전달할 필요 없습니다.\n\n"
         "### 동작\n"
         "1. 연결 레코드를 생성하고 상태를 `pending` 으로 설정\n"
@@ -368,4 +367,3 @@ def cancel_run(run_id: str, db: Session = Depends(get_db)):
 def stream_run_events(run_id: str, db: Session = Depends(get_db)):
     data = _service(db).list_run_events(run_id)
     return {"data": data}
-

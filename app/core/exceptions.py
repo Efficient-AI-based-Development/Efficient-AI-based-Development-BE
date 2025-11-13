@@ -33,9 +33,7 @@ class ValidationError(AppError):
         super().__init__(message, status_code=400)
 
 
-async def database_exception_handler(
-    request: Request, exc: SQLAlchemyError
-) -> JSONResponse:
+async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
     """Handle database exceptions."""
     logger.error(f"Database error: {exc}", exc_info=True)
     return JSONResponse(
@@ -47,9 +45,7 @@ async def database_exception_handler(
     )
 
 
-async def app_exception_handler(
-    request: Request, exc: AppError
-) -> JSONResponse:
+async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle custom application exceptions."""
     return JSONResponse(
         status_code=exc.status_code,
@@ -57,9 +53,7 @@ async def app_exception_handler(
     )
 
 
-async def general_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unhandled exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
@@ -69,4 +63,3 @@ async def general_exception_handler(
             "detail": "An unexpected error occurred",
         },
     )
-

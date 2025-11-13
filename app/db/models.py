@@ -37,9 +37,9 @@ from app.db.database import Base
 
 class Project(Base):
     """프로젝트 모델
-    
+
     AI 개발 프로젝트의 기본 정보를 저장합니다.
-    
+
     Attributes:
         id: 프로젝트 고유 ID
         project_idx: user 별 프로젝트 idx
@@ -49,7 +49,7 @@ class Project(Base):
         owner_id: 프로젝트 소유자
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     Relationships:
         - documents: 프로젝트에 속한 문서들
         - tasks: 프로젝트에 속한 태스크들
@@ -63,11 +63,7 @@ class Project(Base):
         primary_key=True,
         comment="프로젝트 고유 ID",
     )
-    project_idx = Column(
-        Integer,
-        nullable=False,
-        comment="user별 프로젝트 idx"
-    )
+    project_idx = Column(Integer, nullable=False, comment="user별 프로젝트 idx")
     title = Column(
         String(200),
         nullable=False,
@@ -83,15 +79,12 @@ class Project(Base):
         server_default=text("'in_progress'"),
         comment="프로젝트 상태",
     )
-    owner_id = Column(
-        String(120),
-        comment="프로젝트 소유자"
-    )
+    owner_id = Column(String(120), comment="프로젝트 소유자")
     created_at = Column(
         DateTime(timezone=True),
         server_default=text("SYSTIMESTAMP"),
         nullable=False,
-        comment="생성 시간"
+        comment="생성 시간",
     )
 
     updated_at = Column(
@@ -130,17 +123,16 @@ class Project(Base):
     # Check constraints
     __table_args__ = (
         CheckConstraint(
-            "status IN ('not_started','in_progress','completed')",
-            name='ck_projects_status'
+            "status IN ('not_started','in_progress','completed')", name="ck_projects_status"
         ),
     )
 
 
 class Document(Base):
     """문서 모델
-    
+
     프로젝트의 문서(PRD, User_Story, SRS 등)를 저장합니다.
-    
+
     Attributes:
         id: 문서 고유 ID
         project_id: 프로젝트 외래키
@@ -151,17 +143,18 @@ class Document(Base):
         last_editor_id: 최근 수정 사람
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     Relationships:
         - project: 소속 프로젝트
     """
-    __tablename__ = 'documents'
+
+    __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True)
     project_id = Column(
         Integer,
-        ForeignKey('projects.id', ondelete='CASCADE'),  # FK + 삭제시 CASCADE
-        nullable=False
+        ForeignKey("projects.id", ondelete="CASCADE"),  # FK + 삭제시 CASCADE
+        nullable=False,
     )
     type = Column(String(20), nullable=False)
     title = Column(String(300), nullable=False)
@@ -171,21 +164,18 @@ class Document(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),  # Oracle의 DEFAULT SYSTIMESTAMP 대응
-        nullable=False
+        nullable=False,
     )
     updated_at = Column(
         DateTime(timezone=True),
         nullable=True,  # DDL에서도 nullable임
-        onupdate=func.now()  # UPDATE 시 자동 갱신
+        onupdate=func.now(),  # UPDATE 시 자동 갱신
     )
 
     # 테이블 제약 조건 및 인덱스
     __table_args__ = (
-        CheckConstraint(
-            "type IN ('PRD','USER_STORY','SRS')",
-            name='ck_documents_type'
-        ),
-        Index('ix_documents_project_type', 'project_id', 'type'),
+        CheckConstraint("type IN ('PRD','USER_STORY','SRS')", name="ck_documents_type"),
+        Index("ix_documents_project_type", "project_id", "type"),
     )
 
     project = relationship(
@@ -193,95 +183,61 @@ class Document(Base):
         back_populates="documents",
     )
 
+
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        comment="채팅 세션 고유 ID"
-    )
+    id = Column(Integer, primary_key=True, comment="채팅 세션 고유 ID")
 
     file_type = Column(
-        String(20),
-        nullable=False,
-        comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)"
+        String(20), nullable=False, comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)"
     )
 
-    file_id = Column(
-        Integer,
-        nullable=False,
-        comment="연결된 파일 ID"
-    )
+    file_id = Column(Integer, nullable=False, comment="연결된 파일 ID")
 
-    user_id = Column(
-        String(120),
-        nullable=False,
-        comment="세션 소유자 ID"
-    )
+    user_id = Column(String(120), nullable=False, comment="세션 소유자 ID")
 
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=text("SYSTIMESTAMP"),
         nullable=False,
-        comment="세션 생성 시간"
+        comment="세션 생성 시간",
     )
+
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        autoincrement=True,
-        comment="메시지 고유 ID"
-    )
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="메시지 고유 ID")
 
     session_id = Column(
         Integer,
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),
         nullable=False,
-        comment="연결된 채팅 세션 ID"
+        comment="연결된 채팅 세션 ID",
     )
 
-    role = Column(
-        String(50),
-        nullable=False,
-        comment="메시지 주체 (user, assistant, system, tool)"
-    )
+    role = Column(String(50), nullable=False, comment="메시지 주체 (user, assistant, system, tool)")
 
-    user_id = Column(
-        String(120),
-        nullable=True,
-        comment="사용자 ID"
-    )
+    user_id = Column(String(120), nullable=True, comment="사용자 ID")
 
-    content = Column(
-        CLOB,
-        nullable=True,
-        comment="메시지 내용 (텍스트)"
-    )
+    content = Column(CLOB, nullable=True, comment="메시지 내용 (텍스트)")
 
-    tool_calls_json = Column(
-        CLOB,
-        nullable=True,
-        comment="AI tool 호출 정보(JSON 문자열)"
-    )
+    tool_calls_json = Column(CLOB, nullable=True, comment="AI tool 호출 정보(JSON 문자열)")
 
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=text("SYSTIMESTAMP"),
         nullable=False,
-        comment="메시지 생성 시각"
+        comment="메시지 생성 시각",
     )
-
 
 
 class Task(Base):
     """태스크 모델
-    
+
     프로젝트의 개발 태스크(기능, 버그, 기타)를 관리합니다.
-    
+
     Attributes:
         id: 태스크 ID
         project_id: 프로젝트 외래키
@@ -291,7 +247,7 @@ class Task(Base):
         priority: 우선순위 (VARCHAR2 + CHECK: 'low', 'medium', 'high', 'urgent')
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     Relationships:
         - project: 소속 프로젝트
         - parent_links: 이 태스크를 부모로 하는 링크들
@@ -374,16 +330,16 @@ class Task(Base):
 
 class TaskLink(Base):
     """태스크 링크 모델
-    
+
     태스크 간의 의존성 관계를 관리합니다.
-    
+
     Attributes:
         id: 링크 ID
         parent_task_id: 부모 태스크 ID (이 태스크를 먼저 완료해야 함)
         child_task_id: 자식 태스크 ID (부모가 완료되면 시작 가능)
         link_type: 링크 타입 (VARCHAR2 + CHECK: 'blocks', 'depends_on', 'relates_to')
         created_at: 생성 시간
-    
+
     설명:
         - blocks: 부모 태스크가 완료되지 않으면 자식 태스크를 시작할 수 없음
         - depends_on: 자식 태스크가 부모 태스크에 의존함
@@ -440,9 +396,9 @@ class TaskLink(Base):
 
 class GenJob(Base):
     """생성 작업 모델
-    
+
     AI 기반 코드 생성 작업의 상태와 결과를 추적합니다.
-    
+
     Attributes:
         id: 작업 ID
         project_id: 프로젝트 외래키
@@ -451,7 +407,7 @@ class GenJob(Base):
         result: 생성 결과 (CLOB)
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     설명:
         - AI 생성 작업의 전체 라이프사이클을 추적
         - 결과는 CLOB으로 저장하여 대용량 결과도 저장 가능
@@ -518,9 +474,9 @@ class GenJob(Base):
 
 class MCPConnection(Base):
     """MCP 연결 모델
-    
+
     MCP (Model Context Protocol) 연결 정보를 저장합니다.
-    
+
     Attributes:
         id: 연결 고유 ID
         project_id: 프로젝트 외래키
@@ -528,7 +484,7 @@ class MCPConnection(Base):
         status: 연결 상태 (VARCHAR2 + CHECK: 'active', 'inactive', 'error')
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     Relationships:
         - project: 소속 프로젝트
         - sessions: 이 연결의 세션들
@@ -599,9 +555,9 @@ class MCPConnection(Base):
 
 class MCPSession(Base):
     """MCP 세션 모델
-    
+
     MCP 세션 정보를 저장합니다.
-    
+
     Attributes:
         id: 세션 고유 ID
         connection_id: 연결 외래키
@@ -609,7 +565,7 @@ class MCPSession(Base):
         context: 세션 컨텍스트 (JSON 형태로 저장, Text 타입)
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     Relationships:
         - connection: 소속 연결
         - runs: 이 세션의 실행들
@@ -672,9 +628,9 @@ class MCPSession(Base):
 
 class MCPRun(Base):
     """MCP 실행 모델
-    
+
     MCP 툴/프롬프트 실행 정보를 저장합니다.
-    
+
     Attributes:
         id: 실행 고유 ID
         session_id: 세션 외래키
@@ -687,7 +643,7 @@ class MCPRun(Base):
         message: 상태 메시지
         created_at: 생성 시간
         updated_at: 수정 시간
-    
+
     Relationships:
         - session: 소속 세션
     """
@@ -767,4 +723,3 @@ class MCPRun(Base):
             name="chk_mcp_run_status",
         ),
     )
-

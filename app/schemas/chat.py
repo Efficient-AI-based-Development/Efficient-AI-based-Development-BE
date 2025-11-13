@@ -13,12 +13,15 @@ class FileType(str, Enum):
     srs = "SRS"
     task = "TASK"
 
+
 class ChatMessageRequest(BaseModel):
     content_md: str
+
 
 class ChatSessionCreateRequest(ChatMessageRequest):
     file_type: FileType
     project_id: int
+
 
 class ChatSessionCreateResponse(BaseModel):
     chat_id: int
@@ -26,6 +29,7 @@ class ChatSessionCreateResponse(BaseModel):
     file_type: FileType
     project_id: int
     created_at: datetime
+
 
 class StoreFileResponse(BaseModel):
     ok: bool

@@ -431,7 +431,9 @@ class MCPGuidePlatform(BaseModel):
 
 
 class MCPGuideResponse(BaseModel):
-    provider_id: str = Field(..., alias="providerId", description="MCP 제공자 ID", examples=["chatgpt"])
+    provider_id: str = Field(
+        ..., alias="providerId", description="MCP 제공자 ID", examples=["chatgpt"]
+    )
     provider_name: str = Field(
         ...,
         alias="providerName",

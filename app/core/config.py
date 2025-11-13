@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     @property
     def get_database_url(self) -> str:
         """데이터베이스 연결 URL을 반환합니다.
-        
+
         우선순위:
         1. DATABASE_URL이 설정되어 있으면 그대로 사용
         2. ORACLE_DSN, ORACLE_USER, ORACLE_PASSWORD가 모두 있으면 조합
@@ -64,4 +64,3 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-

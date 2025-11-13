@@ -40,10 +40,10 @@ Base = declarative_base()
 
 def get_db():
     """데이터베이스 세션 의존성 함수
-    
+
     FastAPI의 Depends와 함께 사용하여 각 요청마다 DB 세션을 제공합니다.
     요청 종료 시 자동으로 세션이 닫힙니다.
-    
+
     사용 예시:
         @router.get("/projects")
         def get_projects(db: Session = Depends(get_db)):
@@ -54,4 +54,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

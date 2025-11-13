@@ -23,4 +23,3 @@ def setup_cors(app) -> None:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
