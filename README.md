@@ -58,11 +58,68 @@ cp env.example .env
 ```
 
 `.env` 파일 예시:
+
 ```env
 DATABASE_URL=oracle+oracledb://user:password@host:1521/service
 DEBUG=false
 LOG_LEVEL=INFO
 API_PREFIX=/api/v1
+# fastMCP 연동 (ChatGPT, Claude, Cursor MCP용)
+FASTMCP_BASE_URL=http://localhost:8787
+FASTMCP_TOKEN=project-fastmcp-token-1234
+OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_MODEL=claude-3-sonnet
+```
+
+fastMCP 서버는 저장소 내 `fastmcp-fastapi` 예제를 사용할 수 있습니다.
+
+```bash
+cd fastmcp-fastapi
+# .env 파일을 생성하고 아래 값을 참고해 설정합니다.
+uv run uvicorn fastmcp-fastapi.server:app --reload --port 8787
+```
+
+`fastmcp-fastapi/.env` 예시:
+
+```env
+FASTMCP_TOKEN=project-fastmcp-token-1234
+FASTMCP_MODE=mock  # mock | real
+OPENAI_API_KEY=sk-your-openai-api-key
+ANTHROPIC_API_KEY=sk-your-anthropic-api-key
+PORT=8787
+```
+
+> **참고**  
+> OpenAI·Anthropic API 키는 fastMCP 서버에 사전 설정해 두고 운영합니다.  
+> 최종 사용자는 발급받은 `FASTMCP_TOKEN`만 입력하면 되며, 별도의 API 키를 직접 저장할 필요가 없습니다.
+> 실서비스에서는 `FASTMCP_MODE=real` 로 변경하고 실제 API 키를 제공하면 됩니다.
+
+`FASTMCP_TOKEN` 값은 백엔드 `.env`의 값과 동일하게 맞춰 주세요.
+
+fastMCP CLI 사용 예시는 다음과 같습니다.
+
+```bash
+# 로그인 (한 번만 실행)
+uv run fastmcp login --base-url http://localhost:8787
+
+# ChatGPT 연동
+uv run fastmcp init --project demo --provider chatgpt
+
+# Claude 연동
+uv run fastmcp init --project demo-claude --provider claude
+
+# Cursor 연동
+uv run fastmcp init --project demo-cursor --provider cursor
+
+# 실행 (자연어 명령어 지원 - vooster.ai 스타일)
+uv run fastmcp run "프로젝트 demo의 다음 작업 진행"
+uv run fastmcp run "프로젝트 demo의 T-001 작업 수행"
+
+# 실행 (직접 프롬프트)
+uv run fastmcp run "이번 sprint 요약해줘"
+
+# 프로젝트 ID 명시
+uv run fastmcp run "다음 작업 진행" --project demo
 ```
 
 ### 6. 데이터베이스 마이그레이션
@@ -124,7 +181,6 @@ uv run black app/
 uv run mypy app/
 ```
 
-
 ## 📁 프로젝트 구조
 
 ```
@@ -173,7 +229,9 @@ efficient-ai-backend/
 ```
 
 ## 📝 커밋/브랜치 규칙
+
 - Conventional Commits
+
 ```
 init: 프로젝트 초기화
 feat: 새로운 기능 추가
@@ -187,14 +245,16 @@ minor: 사소한 변경 (선택)
 ```
 
 ## 🌿브랜칭
+
 - main: 배포 브랜치
 - dev: 개발 브랜치
-- feat/*, fix/*, chore/* 분기 → PR → 리뷰 → squash merge
+- feat/_, fix/_, chore/\* 분기 → PR → 리뷰 → squash merge
 
 ## 🔐 보안
+
 - 입력 검증: **Pydantic(BaseModel)**으로 모든 요청 데이터 타입/제약 검사
 - 비밀키/DB 정보는 .env로 관리 (커밋 금지)
-“.env는 반드시 .gitignore에 포함, 공유는 .env.example로만 진행”
+  “.env는 반드시 .gitignore에 포함, 공유는 .env.example로만 진행”
 - 민감 정보 로그 출력 금지
 
 ## 📦 Docker 사용
@@ -225,12 +285,14 @@ GitHub Actions를 통해 자동화된 CI/CD 파이프라인이 설정되어 있�
 ## 📜 API 명세
 
 FastAPI 자동 생성 문서 확인:
+
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
 ### 주요 엔드포인트
 
 #### 프로젝트 (Projects)
+
 ```bash
 GET    /api/v1/projects              # 목록 조회
 POST   /api/v1/projects              # 생성
@@ -240,6 +302,7 @@ DELETE /api/v1/projects/{id}         # 삭제
 ```
 
 #### 문서 (Documents)
+
 ```bash
 POST   /api/v1/docs/{id}/rewrite     # AI 문서 수정
 POST   /api/v1/docs/{id}/rewrite/full # AI 문서 전체 수정
@@ -249,6 +312,7 @@ DELETE /api/v1/docs/{id}             # 삭제
 ```
 
 #### 태스크 (Tasks)
+
 ```bash
 POST   /api/v1/projects/{id}/tasks   # 생성
 GET    /api/v1/projects/{id}/tasks   # 목록
@@ -258,16 +322,35 @@ DELETE /api/v1/tasks/{id}            # 삭제
 ```
 
 #### MCP (Model Context Protocol)
+
 ```bash
-POST   /api/mcp/connections          # 연결 생성
-GET    /api/mcp/connections          # 연결 목록
-DELETE /api/mcp/connections/{id}     # 연결 종료
-POST   /api/mcp/sessions            # 세션 시작
-GET    /api/mcp/sessions            # 세션 목록
-GET    /api/mcp/tools               # 툴 카탈로그
-GET    /api/mcp/resources            # 리소스 카탈로그
-GET    /api/mcp/prompts              # 프롬프트 카탈로그
-POST   /api/mcp/runs                # 실행 생성
-GET    /api/mcp/runs/{id}           # 실행 상태
-GET    /api/mcp/runs/{id}/events    # SSE 이벤트 스트리밍
+# 프로젝트 상태
+GET    /api/v1/mcp/projects                    # 프로젝트별 MCP 연결 현황
+
+# 연결 관리
+POST   /api/v1/mcp/connections                 # 연결 생성
+GET    /api/v1/mcp/connections                 # 연결 목록
+POST   /api/v1/mcp/connections/{id}/activate   # 연결 활성화 (필수!)
+DELETE /api/v1/mcp/connections/{id}            # 연결 종료
+
+# 가이드
+GET    /api/v1/mcp/providers/{providerId}/guide # 연동 가이드 조회 (vooster.ai 스타일)
+
+# 세션 관리
+POST   /api/v1/mcp/sessions                    # 세션 시작
+GET    /api/v1/mcp/sessions                    # 세션 목록
+DELETE /api/v1/mcp/sessions/{id}               # 세션 종료
+
+# 카탈로그
+GET    /api/v1/mcp/tools                       # 툴 카탈로그
+GET    /api/v1/mcp/resources                   # 리소스 카탈로그
+GET    /api/v1/mcp/prompts                     # 프롬프트 카탈로그
+
+# 실행
+POST   /api/v1/mcp/runs                        # 실행 생성
+GET    /api/v1/mcp/runs/{id}                   # 실행 상태 조회
+POST   /api/v1/mcp/runs/{id}/cancel            # 실행 취소
+GET    /api/v1/mcp/runs/{id}/events            # 실행 이벤트 조회
 ```
+
+**지원 Provider**: `chatgpt`, `claude`, `cursor`

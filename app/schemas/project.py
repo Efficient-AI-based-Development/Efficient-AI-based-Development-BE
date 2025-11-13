@@ -1,7 +1,10 @@
 """Project-related Pydantic schemas."""
+
 from datetime import datetime
-from typing import Literal, Any
-from pydantic import BaseModel, ConfigDict
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class ProjectBase(BaseModel):
     id: int
@@ -22,6 +25,7 @@ class ProjectCreateRequest(BaseModel):
     AI_model: str
     tech_stack: str
 
+
 class ProjectCreateResponse(ProjectBase):
     title: str
     service_color: str
@@ -35,6 +39,7 @@ class ProjectUpdateRequest(BaseModel):
     title: str | None = None
     status: Literal["not_started", "in_progress", "completed"] | None = None
 
+
 # 단일 응답 DTO (공통 응답)
 class ProjectRead(ProjectBase):
     owner_id: str
@@ -46,7 +51,7 @@ class ProjectRead(ProjectBase):
 # 목록 응답
 class PageMeta(BaseModel):
     page: int
-    pageSize: int
+    page_size: int = Field(..., alias="pageSize")
     total: int
     model_config = ConfigDict(populate_by_name=True)
 
@@ -65,8 +70,9 @@ class ProjectDeleteResponse(BaseModel):
     deleted_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+
 class PaginationParams(BaseModel):
     q: str | None = None
     page: int = 1
-    pageSize: int = 10
-
+    page_size: int = Field(10, alias="pageSize")
+    model_config = ConfigDict(populate_by_name=True)

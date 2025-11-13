@@ -26,4 +26,3 @@ def setup_logging() -> None:
     # SQLAlchemy 쿼리 로깅 (디버그 모드에서만)
     if settings.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-
