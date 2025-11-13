@@ -12,18 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install uv
         run: pip install uv
-      
+
       - name: Install dependencies
-        run: uv pip install ruff
-      
+        run: uv pip install --system ruff
+
       - name: Run Ruff
         run: ruff check app/ tests/
 
@@ -32,18 +32,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install uv
         run: pip install uv
-      
+
       - name: Install dependencies
-        run: uv pip install black
-      
+        run: uv pip install --system black
+
       - name: Run Black check
         run: black --check app/ tests/
 
@@ -52,18 +52,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install uv
         run: pip install uv
-      
+
       - name: Install dependencies
-        run: uv pip install mypy types-all
-      
+        run: uv pip install --system mypy types-all
+
       - name: Run MyPy
         run: mypy app/
         continue-on-error: true
@@ -73,18 +73,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install uv
         run: pip install uv
-      
+
       - name: Install dependencies
-        run: uv pip install pytest pytest-asyncio httpx
-      
+        run: uv pip install --system pytest pytest-asyncio httpx
+
       - name: Run tests
         run: pytest tests/ -v
 
@@ -93,18 +93,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install uv
         run: pip install uv
-      
+
       - name: Install dependencies
-        run: uv pip install alembic
-      
+        run: uv pip install --system alembic
+
       - name: Check migrations
         run: |
           if [ -z "$DATABASE_URL" ]; then
@@ -119,10 +119,10 @@ jobs:
     needs: [lint, format, test]
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
@@ -131,4 +131,3 @@ jobs:
           tags: efficient-ai-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
