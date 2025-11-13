@@ -58,5 +58,4 @@ fastmcp = "fastmcp_cli:app"
 [tool.ruff.lint.per-file-ignores]
 "app/api/v1/routes/chats.py" = ["N806"]
 "app/api/v1/routes/mcp.py" = ["E501"]
-"app/domain/documents.py" = ["E501"]
 "app/domain/mcp/service.py" = ["E501"]
