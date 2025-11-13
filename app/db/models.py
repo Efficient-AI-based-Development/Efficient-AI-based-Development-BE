@@ -15,15 +15,20 @@
 """
 
 from datetime import datetime
+
 from sqlalchemy import (  # type: ignore
+    CLOB,
+    TIMESTAMP,
+    CheckConstraint,
     Column,
+    DateTime,
+    ForeignKey,
+    Index,
     Integer,
     String,
     Text,
-    DateTime,
-    ForeignKey,
-
-    CheckConstraint, text, CLOB, func, UniqueConstraint, Index, TIMESTAMP,
+    func,
+    text,
 )
 from sqlalchemy.orm import relationship  # type: ignore
 

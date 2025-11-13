@@ -1,6 +1,5 @@
 """MCP (Model Context Protocol) API routes."""
 
-from typing import List
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -8,24 +7,24 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.domain.mcp import MCPService
 from app.schemas.mcp import (
-    MCPConnectionCreate,
-    MCPConnectionResponse,
-    MCPConnectionListResponse,
     MCPConnectionCloseResponse,
+    MCPConnectionCreate,
+    MCPConnectionListResponse,
+    MCPConnectionResponse,
+    MCPGuideResponse,
     MCPProjectStatusResponse,
-    MCPSessionCreate,
-    MCPSessionResponse,
-    MCPSessionListResponse,
-    MCPSessionCloseResponse,
+    MCPPromptListResponse,
+    MCPResourceListResponse,
+    MCPRunCancelResponse,
     MCPRunCreate,
+    MCPRunEventsResponse,
     MCPRunResponse,
     MCPRunStatusResponse,
-    MCPRunCancelResponse,
-    MCPRunEventsResponse,
+    MCPSessionCloseResponse,
+    MCPSessionCreate,
+    MCPSessionListResponse,
+    MCPSessionResponse,
     MCPToolListResponse,
-    MCPResourceListResponse,
-    MCPPromptListResponse,
-    MCPGuideResponse,
 )
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])

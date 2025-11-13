@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.insight import ProjectInsightsResponse, InsightSummaryResponse
+from app.schemas.insight import InsightSummaryResponse, ProjectInsightsResponse
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 

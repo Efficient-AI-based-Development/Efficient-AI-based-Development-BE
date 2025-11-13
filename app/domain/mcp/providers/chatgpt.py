@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -29,24 +29,24 @@ class _BaseFastMCPProvider:
         self._provider_key = provider_key
         self._timeout = timeout
 
-    def run(self, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def run(self, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute a ChatGPT completion with provided arguments."""
         arguments = arguments or {}
 
         model = arguments.get("model") or self._model
-        prompt: Optional[str] = arguments.get("prompt") or arguments.get("input")
+        prompt: str | None = arguments.get("prompt") or arguments.get("input")
         messages = arguments.get("messages")
         temperature = arguments.get("temperature")
         max_tokens = arguments.get("maxTokens") or arguments.get("max_tokens")
 
         if messages and isinstance(messages, list):
-            message_payload: List[Dict[str, Any]] = messages
+            message_payload: list[dict[str, Any]] = messages
         elif isinstance(prompt, str) and prompt.strip():
             message_payload = [{"role": "user", "content": prompt}]
         else:
             raise ValueError("ChatGPT 실행을 위해 prompt 또는 messages 인자가 필요합니다.")
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "provider": self._provider_key,
             "model": model,
             "messages": message_payload,

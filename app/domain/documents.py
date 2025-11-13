@@ -3,15 +3,19 @@
 
 
 import traceback
-from typing import List
 
 from fastapi import HTTPException
-from sqlalchemy.exc import NoResultFound, SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
 from app.db.models import Document, Project
-from app.schemas.document import DocumentCreateRequest, DocumentUpdateRequest, DocumentPage, DocumentRead
+from app.schemas.document import (
+    DocumentCreateRequest,
+    DocumentPage,
+    DocumentRead,
+    DocumentUpdateRequest,
+)
 
 #################################################################################################################################################################
 ########################################################################### 서비스 정의 ###########################################################################
@@ -153,7 +157,7 @@ def update_document_repo(projectID: int, type: str, user_id: str, request: Docum
     return document
 
 
-def get_document_list_repo(projectID: int, user_id: str, db: Session) -> List[DocumentRead]:
+def get_document_list_repo(projectID: int, user_id: str, db: Session) -> list[DocumentRead]:
     return db.query(Document).filter(
         Document.author_id == user_id,
         Document.project_id == projectID).all()

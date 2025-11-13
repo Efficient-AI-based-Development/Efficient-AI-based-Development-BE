@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy.orm import Session  # type: ignore
 
@@ -11,23 +11,22 @@ from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db import models
 from app.domain.mcp.providers import ChatGPTProvider, ClaudeProvider, CursorProvider
-
 from app.schemas.mcp import (
     MCPConnectionCreate,
     MCPConnectionData,
+    MCPGuideCommand,
+    MCPGuidePlatform,
+    MCPGuideResponse,
+    MCPGuideStep,
     MCPProjectStatusItem,
+    MCPPromptItem,
+    MCPResourceItem,
     MCPRunCreate,
     MCPRunData,
     MCPRunStatusData,
-    MCPToolItem,
-    MCPResourceItem,
-    MCPPromptItem,
     MCPSessionCreate,
     MCPSessionData,
-    MCPGuideResponse,
-    MCPGuidePlatform,
-    MCPGuideStep,
-    MCPGuideCommand,
+    MCPToolItem,
 )
 
 
@@ -58,7 +57,7 @@ class MCPService:
 
         return self._to_connection_data(connection)
 
-    def list_connections(self, project_identifier: Optional[str] = None) -> List[MCPConnectionData]:
+    def list_connections(self, project_identifier: str | None = None) -> list[MCPConnectionData]:
         """MCP 연결 목록 조회."""
         query = self.db.query(models.MCPConnection)
         if project_identifier is not None:
@@ -67,7 +66,7 @@ class MCPService:
         connections = query.order_by(models.MCPConnection.created_at.desc()).all()
         return [self._to_connection_data(conn) for conn in connections]
 
-    def deactivate_connection(self, external_connection_id: str) -> Dict[str, Any]:
+    def deactivate_connection(self, external_connection_id: str) -> dict[str, Any]:
         """MCP 연결 비활성화."""
         connection_id = self._decode_connection_id(external_connection_id, prefix="cn")
         connection = self._get_connection(connection_id)
@@ -110,7 +109,7 @@ class MCPService:
         self.db.refresh(session)
         return self._to_session_data(session)
 
-    def list_sessions(self, connection_identifier: Optional[str] = None) -> List[MCPSessionData]:
+    def list_sessions(self, connection_identifier: str | None = None) -> list[MCPSessionData]:
         """MCP 세션 목록 조회."""
         query = self.db.query(models.MCPSession)
         if connection_identifier is not None:
@@ -119,7 +118,7 @@ class MCPService:
         sessions = query.order_by(models.MCPSession.created_at.desc()).all()
         return [self._to_session_data(session) for session in sessions]
 
-    def close_session(self, external_session_id: str) -> Dict[str, Any]:
+    def close_session(self, external_session_id: str) -> dict[str, Any]:
         """MCP 세션 종료."""
         session_id = self._decode_connection_id(external_session_id, prefix="ss")
         session = self._get_session(session_id)
@@ -134,7 +133,7 @@ class MCPService:
     # ------------------------------------------------------------------
     # Catalog
     # ------------------------------------------------------------------
-    _TOOL_REGISTRY: Dict[str, List[Dict[str, Any]]] = {
+    _TOOL_REGISTRY: dict[str, list[dict[str, Any]]] = {
         "chatgpt": [
             {
                 "toolId": "gen_user_story",
@@ -182,7 +181,7 @@ class MCPService:
         ],
     }
 
-    _RESOURCE_REGISTRY: Dict[str, List[Dict[str, Any]]] = {
+    _RESOURCE_REGISTRY: dict[str, list[dict[str, Any]]] = {
         "chatgpt": [
             {
                 "uri": "file:///app/README.md",
@@ -211,7 +210,7 @@ class MCPService:
         ],
     }
 
-    _PROMPT_REGISTRY: Dict[str, List[Dict[str, Any]]] = {
+    _PROMPT_REGISTRY: dict[str, list[dict[str, Any]]] = {
         "chatgpt": [
             {
                 "promptId": "fix_tests",
@@ -235,7 +234,7 @@ class MCPService:
         ],
     }
 
-    def list_tools(self, external_session_id: str) -> List[MCPToolItem]:
+    def list_tools(self, external_session_id: str) -> list[MCPToolItem]:
         """세션별 사용 가능한 MCP 툴 목록 조회."""
         session_id = self._decode_connection_id(external_session_id, prefix="ss")
         session = self._get_session(session_id)
@@ -243,7 +242,7 @@ class MCPService:
         tools = self._TOOL_REGISTRY.get(connection_type, [])
         return [MCPToolItem(**tool) for tool in tools]
 
-    def list_resources(self, external_session_id: str) -> List[MCPResourceItem]:
+    def list_resources(self, external_session_id: str) -> list[MCPResourceItem]:
         """세션별 리소스 목록 조회."""
         session_id = self._decode_connection_id(external_session_id, prefix="ss")
         session = self._get_session(session_id)
@@ -251,7 +250,7 @@ class MCPService:
         resources = self._RESOURCE_REGISTRY.get(connection_type, [])
         return [MCPResourceItem(**resource) for resource in resources]
 
-    def list_prompts(self, external_session_id: str) -> List[MCPPromptItem]:
+    def list_prompts(self, external_session_id: str) -> list[MCPPromptItem]:
         """세션별 프롬프트 목록 조회."""
         session_id = self._decode_connection_id(external_session_id, prefix="ss")
         session = self._get_session(session_id)
@@ -262,7 +261,7 @@ class MCPService:
     # ------------------------------------------------------------------
     # Project status
     # ------------------------------------------------------------------
-    def list_project_statuses(self) -> List[MCPProjectStatusItem]:
+    def list_project_statuses(self) -> list[MCPProjectStatusItem]:
         """프로젝트별 MCP 상태 요약."""
         projects = self.db.query(models.Project).all()
         return [
@@ -307,7 +306,7 @@ class MCPService:
         run = self._get_run(run_id)
         return self._to_run_status_data(run)
 
-    def cancel_run(self, external_run_id: str) -> Dict[str, Any]:
+    def cancel_run(self, external_run_id: str) -> dict[str, Any]:
         """MCP 실행 취소."""
         run_id = self._decode_connection_id(external_run_id, prefix="run")
         run = self._get_run(run_id)
@@ -324,13 +323,13 @@ class MCPService:
             "runId": external_run_id,
         }
 
-    def list_run_events(self, external_run_id: str) -> List[Dict[str, Any]]:
+    def list_run_events(self, external_run_id: str) -> list[dict[str, Any]]:
         """MCP 실행 이벤트 목록."""
         run_id = self._decode_connection_id(external_run_id, prefix="run")
         run = self._get_run(run_id)
         result_payload = self._load_json(run.result)
 
-        events: List[Dict[str, Any]] = [
+        events: list[dict[str, Any]] = [
             {
                 "event": "RUN_STATUS",
                 "data": {
@@ -352,7 +351,7 @@ class MCPService:
     # Guide
     # ------------------------------------------------------------------
 
-    _GUIDES: Dict[str, MCPGuideResponse] = {
+    _GUIDES: dict[str, MCPGuideResponse] = {
         "chatgpt": MCPGuideResponse(
             provider_id="chatgpt",
             provider_name="ChatGPT MCP",
@@ -609,12 +608,12 @@ class MCPService:
             raise NotFoundError("MCPRun", str(run_id))
         return run
 
-    def _dump_json(self, payload: Optional[Any]) -> Optional[str]:
+    def _dump_json(self, payload: Any | None) -> str | None:
         if payload is None:
             return None
         return json.dumps(payload, ensure_ascii=False)
 
-    def _load_json(self, payload: Optional[str]) -> Optional[Any]:
+    def _load_json(self, payload: str | None) -> Any | None:
         if not payload:
             return None
         try:
@@ -668,7 +667,7 @@ class MCPService:
             finished_at=run.updated_at,
         )
 
-    def _normalize_result(self, payload: Optional[str]) -> Dict[str, Any]:
+    def _normalize_result(self, payload: str | None) -> dict[str, Any]:
         data = self._load_json(payload)
         if isinstance(data, dict):
             return data
@@ -752,9 +751,9 @@ class MCPService:
         self.db.commit()
         self.db.refresh(run)
 
-    def _build_chat_arguments(self, payload: MCPRunCreate) -> Dict[str, Any]:
+    def _build_chat_arguments(self, payload: MCPRunCreate) -> dict[str, Any]:
         config = payload.config or {}
-        arguments: Dict[str, Any] = {}
+        arguments: dict[str, Any] = {}
         if config.get("model"):
             arguments["model"] = config["model"]
         if config.get("temperature") is not None:
@@ -782,16 +781,16 @@ class MCPService:
 
     def _format_tool_prompt(
         self,
-        tool_id: Optional[str],
-        input_payload: Dict[str, Any],
+        tool_id: str | None,
+        input_payload: dict[str, Any],
     ) -> str:
         prefix = f"[Tool: {tool_id or 'tool'}]\n"
         return prefix + json.dumps(input_payload, ensure_ascii=False, indent=2)
 
     def _format_prompt_payload(
         self,
-        prompt_id: Optional[str],
-        input_payload: Dict[str, Any],
+        prompt_id: str | None,
+        input_payload: dict[str, Any],
     ) -> str:
         prefix = f"[Prompt: {prompt_id or 'prompt'}]\n"
         return prefix + json.dumps(input_payload, ensure_ascii=False, indent=2)
@@ -840,8 +839,8 @@ class MCPService:
         return mapping.get(status, status)
 
     def _resolve_project_status(
-        self, connections: List[models.MCPConnection]
-    ) -> Optional[str]:
+        self, connections: list[models.MCPConnection]
+    ) -> str | None:
         if not connections:
             return None
 

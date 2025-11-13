@@ -1,16 +1,23 @@
 import json
 import traceback
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, Query
-from sqlalchemy.exc import NoResultFound, SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
 from app.db.models import Project
-from app.schemas.project import ProjectCreateRequest, ProjectPage, ProjectRead, PageMeta, ProjectUpdateRequest, \
-    ProjectDeleteResponse, PaginationParams
+from app.schemas.project import (
+    PageMeta,
+    PaginationParams,
+    ProjectCreateRequest,
+    ProjectDeleteResponse,
+    ProjectPage,
+    ProjectRead,
+    ProjectUpdateRequest,
+)
+
 
 #################################################################################################################################################################
 ########################################################################### 서비스 정의 ###########################################################################
@@ -68,7 +75,7 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
                 detail=f"page는 최대 {total_pages}까지입니다. (total={total}, pageSize={params.pageSize})"
             )
 
-        projects: List[ProjectRead] = [to_project_read(p) for p in projects_orm]
+        projects: list[ProjectRead] = [to_project_read(p) for p in projects_orm]
         meta = PageMeta(page=page, pageSize=per_page, total=total)
 
         return ProjectPage(projects=projects, meta=meta)
@@ -117,7 +124,7 @@ def delete_project_service(projectID: int, user_id: str, db: Session) -> Project
             id=project.id,
             project_idx=project.project_idx,
             title=project.title,
-            deleted_at=datetime.now(timezone.utc),
+            deleted_at=datetime.now(UTC),
         )
         db.commit()
         return resp

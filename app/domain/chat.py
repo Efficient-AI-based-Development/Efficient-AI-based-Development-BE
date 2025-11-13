@@ -1,12 +1,17 @@
 import asyncio
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.exc import NoResultFound, IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.db.models import ChatMessage, Project, Document, ChatSession, Task
-from app.schemas.chat import ChatSessionCreateRequest, ChatSessionCreateResponse, FileType, StoreFileResponse
+from app.db.models import ChatMessage, ChatSession, Document, Project, Task
+from app.schemas.chat import (
+    ChatSessionCreateRequest,
+    ChatSessionCreateResponse,
+    FileType,
+    StoreFileResponse,
+)
 
 SESSION_IN: dict[int, asyncio.Queue[str]] = {}
 SESSION_OUT: dict[int, asyncio.Queue[str]] = {}
@@ -80,7 +85,7 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
                 prompt = build_prompt(session_id, user_message, db)
 
                 # 여기서는 가짜 스트리밍
-                assembled: List[str] = []
+                assembled: list[str] = []
                 for token in prompt:
                     if cancel_ev.is_set():    # 스트림 도중 취소되면 즉시 중단
                         break
@@ -285,7 +290,7 @@ def create_chat_message(user_id: str, chat_session_id: int, role: str, content: 
 
 def create_and_check_file_id(
     user_id: str, request: ChatSessionCreateRequest, db: Session
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
     # project_id = -1 인 경우 -> 프로젝트 생성
     if request.project_id == -1:
         if request.file_type is FileType.project:
@@ -347,9 +352,9 @@ def create_chat_session(
 def insert_file_info_repo(
     user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session
 ):
-    parts: List[str] = []
+    parts: list[str] = []
 
-    def _get_doc(t: str) -> Optional[str]:
+    def _get_doc(t: str) -> str | None:
         d = db.query(Document).filter_by(author_id=user_id, project_id=proj_id, type=t).one_or_none()
         return getattr(d, "content_md", None) if d else None
 
@@ -398,7 +403,7 @@ def create_chat_message_repo(chat_message: ChatMessage, db: Session) -> ChatMess
 
 def check_file_exist_repo(
     user_id: str, request: ChatSessionCreateRequest, db: Session
-) -> Union[Tuple[Any, str], Tuple[None, str]]:
+) -> tuple[Any, str] | tuple[None, str]:
     # request body의 project id와 file_type 조합으로 유무 판별
 
     # type = project인 경우 project 수정임
@@ -438,7 +443,7 @@ def check_file_exist_repo(
 
 def create_file_repo(
     user_id: str, request: ChatSessionCreateRequest, db: Session
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
         file = Project(

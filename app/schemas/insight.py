@@ -1,6 +1,7 @@
 """Insight-related Pydantic schemas."""
 
-from typing import Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -14,7 +15,7 @@ class ProjectInsightsResponse(BaseModel):
     active_tasks: int = Field(..., description="진행 중인 태스크 수")
     pending_tasks: int = Field(..., description="대기 중인 태스크 수")
     total_documents: int = Field(..., description="전체 문서 수")
-    recent_activities: Optional[list] = Field(None, description="최근 활동 목록")
+    recent_activities: list[Any] | None = Field(None, description="최근 활동 목록")
 
 
 class InsightSummaryResponse(BaseModel):

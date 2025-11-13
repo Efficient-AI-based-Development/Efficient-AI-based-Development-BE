@@ -1,6 +1,7 @@
 """메인 애플리케이션 테스트."""
 
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 

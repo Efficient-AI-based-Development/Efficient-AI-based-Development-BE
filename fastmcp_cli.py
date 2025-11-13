@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import httpx
 import typer
@@ -63,7 +62,7 @@ def login(
 
 @app.command()
 def init(
-    project: Optional[str] = typer.Option(
+    project: str | None = typer.Option(
         None,
         "--project",
         "-p",
@@ -107,7 +106,7 @@ def status() -> None:
         raise typer.Exit(code=1) from exc
 
 
-def _build_system_prompt(project_id: Optional[str] = None) -> str:
+def _build_system_prompt(project_id: str | None = None) -> str:
     """프로젝트 컨텍스트를 포함한 시스템 프롬프트 생성."""
     base_prompt = "You are an assistant helping developers with their projects."
     if project_id:
@@ -117,11 +116,11 @@ def _build_system_prompt(project_id: Optional[str] = None) -> str:
 
 @app.command()
 def run(
-    prompt: Optional[str] = typer.Argument(
+    prompt: str | None = typer.Argument(
         None,
         help="실행할 사용자 프롬프트 또는 자연어 명령어 (예: '프로젝트 JYVP의 다음 작업 진행')",
     ),
-    project_id: Optional[str] = typer.Option(
+    project_id: str | None = typer.Option(
         None,
         "--project",
         "-p",
@@ -145,14 +144,14 @@ def run(
     """
     config = load_config()
     project = load_project()
-    
+
     # 프로젝트 ID 우선순위: 명령어 옵션 > 프로젝트 파일 > 자연어에서 추출
     resolved_project_id = project_id or project.get("project")
-    
+
     # 프롬프트가 없으면 대화형으로 입력받기
     if prompt is None:
         prompt = typer.prompt("프롬프트를 입력하세요", default="이번 sprint 요약해줘")
-    
+
     provider = project.get("provider", "chatgpt")
     if provider in PROVIDER_MAP:
         provider_key, default_model = PROVIDER_MAP[provider]
@@ -162,7 +161,7 @@ def run(
 
     # 시스템 프롬프트에 프로젝트 컨텍스트 추가
     system_content = _build_system_prompt(resolved_project_id)
-    
+
     # 자연어 명령어를 더 명확하게 처리하기 위한 컨텍스트 추가
     user_content = prompt
     if resolved_project_id and "프로젝트" in prompt and resolved_project_id not in prompt:

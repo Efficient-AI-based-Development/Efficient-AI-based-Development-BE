@@ -3,16 +3,16 @@
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
+from app.api.v1.routes import router as v1_router
 from app.core.config import settings
-from app.core.logging import setup_logging
 from app.core.cors import setup_cors
 from app.core.exceptions import (
-    database_exception_handler,
+    AppError,
     app_exception_handler,
+    database_exception_handler,
     general_exception_handler,
-    AppException,
 )
-from app.api.v1.routes import router as v1_router
+from app.core.logging import setup_logging
 
 # 로깅 설정
 setup_logging()
@@ -30,8 +30,9 @@ setup_cors(app)
 
 # 예외 핸들러 등록
 from sqlalchemy.exc import SQLAlchemyError
+
 app.add_exception_handler(SQLAlchemyError, database_exception_handler)
-app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(AppError, app_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 # API 라우터 등록
@@ -56,7 +57,7 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,

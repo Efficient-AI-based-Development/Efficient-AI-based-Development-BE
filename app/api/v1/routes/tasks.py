@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.schemas.task import (
     TaskCreate,
-    TaskUpdate,
-    TaskResponse,
     TaskListResponse,
+    TaskResponse,
+    TaskUpdate,
 )
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])

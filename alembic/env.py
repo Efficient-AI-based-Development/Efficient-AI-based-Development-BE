@@ -9,16 +9,14 @@
 - Oracle 특화 설정이 필요할 수 있음
 """
 
-from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
-
 # app의 config와 models를 import
 import sys
+from logging.config import fileConfig
 from pathlib import Path
+
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # 프로젝트 루트를 sys.path에 추가
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -26,14 +24,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core.config import settings
 from app.db.database import Base
 from app.db.models import (  # noqa: F401
-    Project,
     Document,
-    Task,
-    TaskLink,
     GenJob,
     MCPConnection,
-    MCPSession,
     MCPRun,
+    MCPSession,
+    Project,
+    Task,
+    TaskLink,
 )
 
 # this is the Alembic Config object, which provides

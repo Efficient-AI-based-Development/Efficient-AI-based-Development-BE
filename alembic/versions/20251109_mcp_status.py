@@ -5,8 +5,8 @@ Revises: 20241109_mcp_status
 Create Date: 2025-11-09
 """
 
+
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20251109_mcp_status"

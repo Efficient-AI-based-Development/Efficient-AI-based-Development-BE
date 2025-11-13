@@ -1,12 +1,12 @@
 import asyncio
 
-from fastapi import APIRouter, Header, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
 from app.db.database import get_db
-from app.db.models import ChatSession, ChatMessage
+from app.db.models import ChatMessage, ChatSession
 from app.domain.chat import (
     CANCEL_SENTINEL,
     END_SENTINEL,
@@ -18,7 +18,12 @@ from app.domain.chat import (
     create_chat_session_with_message_service,
     ensure_worker,
 )
-from app.schemas.chat import ChatSessionCreateResponse, ChatSessionCreateRequest, ChatMessageRequest, StoreFileResponse
+from app.schemas.chat import (
+    ChatMessageRequest,
+    ChatSessionCreateRequest,
+    ChatSessionCreateResponse,
+    StoreFileResponse,
+)
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -102,7 +107,7 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
 
                 try:
                     token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield {"event": "timeout", "data": "no tokens, stream closed"}
                     cancel_ev.set()
                     in_q = SESSION_IN.get(chat_session_id)

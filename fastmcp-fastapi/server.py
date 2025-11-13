@@ -1,12 +1,12 @@
 # server.py
 import os
-from typing import List, Optional, Literal
+from typing import Literal
 
 import anthropic
+from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from openai import OpenAI
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -15,8 +15,8 @@ MODE = os.getenv("FASTMCP_MODE", "mock")  # mock | real
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-openai_client: Optional[OpenAI] = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-anthropic_client: Optional[anthropic.Anthropic] = (
+openai_client: OpenAI | None = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+anthropic_client: anthropic.Anthropic | None = (
     anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 )
 
@@ -29,11 +29,11 @@ class Msg(BaseModel):
 class ChatReq(BaseModel):
     provider: Literal["openai","anthropic"]
     model: str
-    messages: List[Msg]
-    max_tokens: Optional[int] = 1024
-    temperature: Optional[float] = 0.2
+    messages: list[Msg]
+    max_tokens: int | None = 1024
+    temperature: float | None = 0.2
 
-def assert_authz(auth: Optional[str]):
+def assert_authz(auth: str | None):
     if not FASTMCP_TOKEN:
         # 서버 설정 문제는 500으로
         raise HTTPException(500, "Server missing FASTMCP_TOKEN")
@@ -45,7 +45,7 @@ def health():
     return {"ok": True, "mode": MODE}
 
 @app.post("/ai/chat")
-def ai_chat(body: ChatReq, authorization: Optional[str] = Header(None)):
+def ai_chat(body: ChatReq, authorization: str | None = Header(None)):
     assert_authz(authorization)
 
     # 1) 모의(mock) 모드: 외부 API 호출 없이 성공 응답

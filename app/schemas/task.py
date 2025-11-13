@@ -1,14 +1,14 @@
 """Task-related Pydantic schemas."""
 
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskBase(BaseModel):
     """태스크 기본 스키마"""
     title: str = Field(..., description="태스크 제목", max_length=500)
-    description: Optional[str] = Field(None, description="태스크 설명")
+    description: str | None = Field(None, description="태스크 설명")
     status: str = Field(
         default="pending",
         description="태스크 상태",
@@ -34,10 +34,10 @@ class TaskUpdate(BaseModel):
     
     PATCH /api/v1/tasks/{taskId} 요청 시 사용
     """
-    title: Optional[str] = Field(None, description="태스크 제목", max_length=500)
-    description: Optional[str] = Field(None, description="태스크 설명")
-    status: Optional[str] = Field(None, description="태스크 상태")
-    priority: Optional[str] = Field(None, description="우선순위")
+    title: str | None = Field(None, description="태스크 제목", max_length=500)
+    description: str | None = Field(None, description="태스크 설명")
+    status: str | None = Field(None, description="태스크 상태")
+    priority: str | None = Field(None, description="우선순위")
 
 
 class TaskResponse(TaskBase):
@@ -49,7 +49,7 @@ class TaskResponse(TaskBase):
     project_id: int
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -58,7 +58,7 @@ class TaskListResponse(BaseModel):
     
     GET /api/v1/projects/{projectId}/tasks 응답 시 사용
     """
-    items: List[TaskResponse]
+    items: list[TaskResponse]
     total: int = Field(..., description="전체 태스크 수")
 
 
@@ -83,6 +83,6 @@ class TaskLinkResponse(BaseModel):
     child_task_id: int
     link_type: str
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 

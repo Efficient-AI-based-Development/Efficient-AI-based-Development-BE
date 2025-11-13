@@ -4,9 +4,18 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.domain.documents import create_document_service, get_document_service, update_project_service, \
-    get_document_list_service
-from app.schemas.document import DocumentRead, DocumentCreateRequest, DocumentUpdateRequest, DocumentPage
+from app.domain.documents import (
+    create_document_service,
+    get_document_list_service,
+    get_document_service,
+    update_project_service,
+)
+from app.schemas.document import (
+    DocumentCreateRequest,
+    DocumentPage,
+    DocumentRead,
+    DocumentUpdateRequest,
+)
 
 router = APIRouter(prefix="", tags=["documents"])
 
