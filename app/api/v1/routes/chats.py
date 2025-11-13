@@ -1,19 +1,31 @@
 import asyncio
-from asyncio import QueueEmpty
 from contextlib import suppress
 
-from fastapi import APIRouter, Header, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
 from app.db.database import get_db
-from app.db.models import ChatSession, ChatMessage
-from app.domain.chat import create_chat_session_with_message_service, ensure_worker, SESSION_IN, SESSION_OUT, \
-    SESSION_TASK, SESSION_CANCEL, CANCEL_SENTINEL, END_SENTINEL, \
-    apply_ai_last_message_to_content_service
-from app.schemas.chat import ChatSessionCreateResponse, ChatSessionCreateRequest, ChatMessageRequest, StoreFileResponse, \
-    StoreFileRequest
+from app.db.models import ChatMessage, ChatSession
+from app.domain.chat import (
+    CANCEL_SENTINEL,
+    END_SENTINEL,
+    SESSION_CANCEL,
+    SESSION_IN,
+    SESSION_OUT,
+    SESSION_TASK,
+    apply_ai_last_message_to_content_service,
+    create_chat_session_with_message_service,
+    ensure_worker,
+)
+from app.schemas.chat import (
+    ChatMessageRequest,
+    ChatSessionCreateRequest,
+    ChatSessionCreateResponse,
+    StoreFileRequest,
+    StoreFileResponse,
+)
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -22,14 +34,19 @@ TIMEOUT = 300
 
 # chat 시작 & init_project 생성
 @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
-async def start_chat_with_init_file(request: ChatSessionCreateRequest, user_id: str = Header(..., alias="X-User-ID"),  db: Session = Depends(get_db)):
+async def start_chat_with_init_file(
+    request: ChatSessionCreateRequest,
+    user_id: str = Header(..., alias="X-User-ID"),
+    db: Session = Depends(get_db),
+):
 
     resp = create_chat_session_with_message_service(user_id, request.content_md, request, db)
 
-    await ensure_worker(user_id, resp.chat_id, db)                                  # ① 워커 보장
+    await ensure_worker(user_id, resp.chat_id, db)  # ① 워커 보장
     await SESSION_IN[resp.chat_id].put(request.content_md)
 
     return resp
+
 
 # SSE 연결, AI 응답 보내기
 @router.get("/{chat_session_id}/stream")
@@ -61,7 +78,7 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
 
                 try:
                     token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield {"event": "timeout", "data": "no tokens, stream closed"}
                     cancel_ev.set()
                     in_q = SESSION_IN.get(chat_session_id)
@@ -93,7 +110,6 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
     return EventSourceResponse(event_gen(), ping=15000)
 
 
-
 @router.post("/{chat_session_id}/messages")
 async def send_message(
     chat_session_id: int,
@@ -102,7 +118,11 @@ async def send_message(
     db: Session = Depends(get_db),
 ):
 
-    sess = db.query(ChatSession).filter(ChatSession.user_id == user_id, ChatSession.id == chat_session_id).one_or_none()
+    sess = (
+        db.query(ChatSession)
+        .filter(ChatSession.user_id == user_id, ChatSession.id == chat_session_id)
+        .one_or_none()
+    )
     if not sess:
         raise HTTPException(404, "chat session not found")
 
@@ -110,12 +130,15 @@ async def send_message(
         # 스트림이 열리기 전 메시지 -> 무시할지, 저장만 할지 선택
         return {"ok": True, "ignored": True}
 
-    db.add(ChatMessage(
-        session_id=chat_session_id, role="user",
-        content=request.content_md, user_id=user_id
-    ))
+    db.add(
+        ChatMessage(
+            session_id=chat_session_id,
+            role="user",
+            content=request.content_md,
+            user_id=user_id,
+        )
+    )
     db.commit()
-
 
     # worker 보장
     await ensure_worker(user_id, chat_session_id, db)
@@ -125,12 +148,18 @@ async def send_message(
 
     return {"ok": True}
 
+
 @router.post("/{chat_session_id}/cancel", status_code=202)
-async def cancel_session(chat_session_id: int, user_id: str = Header(...,alias="X-User-ID"), db: Session = Depends(get_db)):
-    session = db.query(ChatSession).filter(
-        ChatSession.id == chat_session_id,
-        ChatSession.user_id == user_id
-    ).first()
+async def cancel_session(
+    chat_session_id: int,
+    user_id: str = Header(..., alias="X-User-ID"),
+    db: Session = Depends(get_db),
+):
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id)
+        .first()
+    )
 
     if session is None:
         # 네 스타일 기준 -> 404 사용
@@ -152,7 +181,6 @@ async def cancel_session(chat_session_id: int, user_id: str = Header(...,alias="
                 break
         with suppress(asyncio.QueueFull):
             in_q.put_nowait(CANCEL_SENTINEL)
-
 
     out_q = SESSION_OUT.get(chat_session_id)
     if out_q is not None:
@@ -180,10 +208,13 @@ async def cancel_session(chat_session_id: int, user_id: str = Header(...,alias="
     return {"ok": True}
 
 
-@router.post("/{chat_session_id}/store", response_model = StoreFileResponse , status_code=200)
-def store_file(chat_session_id: int, request: StoreFileRequest, user_id: str = Header(...,alias="X-User-ID"),  db: Session = Depends(get_db)):
-    return apply_ai_last_message_to_content_service(user_id, chat_session_id, request.project_id, db)
-
-
-
-
+@router.post("/{chat_session_id}/store", response_model=StoreFileResponse, status_code=200)
+def store_file(
+    chat_session_id: int,
+    request: StoreFileRequest,
+    user_id: str = Header(..., alias="X-User-ID"),
+    db: Session = Depends(get_db),
+):
+    return apply_ai_last_message_to_content_service(
+        user_id, chat_session_id, request.project_id, db
+    )
