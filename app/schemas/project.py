@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProjectBase(BaseModel):
@@ -51,7 +51,7 @@ class ProjectRead(ProjectBase):
 # 목록 응답
 class PageMeta(BaseModel):
     page: int
-    pageSize: int
+    page_size: int = Field(..., alias="pageSize")
     total: int
     model_config = ConfigDict(populate_by_name=True)
 
@@ -74,4 +74,5 @@ class ProjectDeleteResponse(BaseModel):
 class PaginationParams(BaseModel):
     q: str | None = None
     page: int = 1
-    pageSize: int = 10
+    page_size: int = Field(10, alias="pageSize")
+    model_config = ConfigDict(populate_by_name=True)

@@ -719,7 +719,7 @@ class MCPRun(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
+            "status IN ('pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'cancelled')",
             name="chk_mcp_run_status",
         ),
     )

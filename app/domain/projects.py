@@ -56,7 +56,7 @@ def create_project_service(request: ProjectCreateRequest, user_id: str, db: Sess
 def get_project_list_service(params: PaginationParams, user_id: str, db: Session) -> ProjectPage:
     try:
         q = (params.q or "").strip() or None
-        per_page = min(max(10, params.pageSize), 50)
+        per_page = min(max(10, params.page_size), 50)
         page = max(1, params.page or 1)
 
         projects_orm, total = get_project_list_repo(
@@ -67,11 +67,11 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
         if page > total_pages:
             raise HTTPException(
                 status_code=400,
-                detail=f"page는 최대 {total_pages}까지입니다. (total={total}, pageSize={params.pageSize})",
+                detail=f"page는 최대 {total_pages}까지입니다. (total={total}, pageSize={params.page_size})",
             )
 
         projects: list[ProjectRead] = [to_project_read(p) for p in projects_orm]
-        meta = PageMeta(page=page, pageSize=per_page, total=total)
+        meta = PageMeta(page=page, page_size=per_page, total=total)
 
         return ProjectPage(projects=projects, meta=meta)
     except SQLAlchemyError:
@@ -135,14 +135,14 @@ def delete_project_service(projectID: int, user_id: str, db: Session) -> Project
 def get_pagination_params(
     q: str | None = Query(None, description="검색어"),
     page: int = Query(1, ge=1, description="페이지 번호"),
-    pageSize: int = Query(10, ge=10, le=50, description="페이지 크기"),
+    page_size: int = Query(10, ge=10, le=50, alias="pageSize", description="페이지 크기"),
 ) -> PaginationParams:
-    if page > pageSize:
+    if page > page_size:
         raise HTTPException(
             status_code=400,
-            detail=f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다. (page={page}, pageSize={pageSize})",
+            detail=f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다. (page={page}, pageSize={page_size})",
         )
-    return PaginationParams(q=q, pageSize=pageSize, page=page)
+    return PaginationParams(q=q, page_size=page_size, page=page)
 
 
 #################################################################################################################################################################
