@@ -5,74 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7990b474-d54f-48ef-a48e-d81154c225f8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.env.backup" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.fastmcp/project.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.pre-commit-config.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20241109_mcp_stub.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_add_updated_at.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_align_columns.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_run_cleanup.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_run_timestamps.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_session_cleanup.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_session_context.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_session_timestamps.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_status.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/alembic/versions/20251109_mcp_status_constraint.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/domain/mcp/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/domain/mcp/providers/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/domain/mcp/providers/chatgpt.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/domain/mcp/service.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/fastmcp-fastapi/server.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/fastmcp_cli.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test_openapi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.github/workflows/ci.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/ci.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Efficient-AI-based-Development-BE.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/alembic/env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/versions/add_task_fields_migration.py" beforeDir="false" afterPath="$PROJECT_DIR$/alembic/versions/add_task_fields_migration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/versions/e6945cbd3c1d_initial_migration.py" beforeDir="false" afterPath="$PROJECT_DIR$/alembic/versions/e6945cbd3c1d_initial_migration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/chats.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/chats.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/documents.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/documents.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/generate.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/generate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/insights.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/insights.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/mcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/mcp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/projects.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/projects.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routes/tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routes/tasks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/cors.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/cors.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/exceptions.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/exceptions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/logging.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/db/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/db/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/db/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/db/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/domain/chat.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/domain/chat.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/domain/documents.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/domain/documents.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/domain/projects.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/domain/projects.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/domain/tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/domain/tasks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/chat.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/chat.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/document.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/document.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/generation.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/generation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/insight.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/insight.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/mcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/mcp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/project.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/project.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/schemas/task.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/schemas/task.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/conftest.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/conftest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_main.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_routes/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_routes/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_routes/test_projects.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -109,7 +43,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "Merging AD-6-feat-chat-task"
+    "git-widget-placeholder": "AD-6-feat-chat-task"
   }
 }]]></component>
   <component name="SharedIndexes">

@@ -84,10 +84,10 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
                     continue
 
                 prompt = build_prompt(session_id, user_message, db)
-
+                answer = prompt
                 # 여기서는 가짜 스트리밍
                 assembled: list[str] = []
-                for token in prompt:
+                for token in answer:
                     if cancel_ev.is_set():  # 스트림 도중 취소되면 즉시 중단
                         break
                     await asyncio.sleep(0.05)
@@ -228,7 +228,13 @@ def store_document_content(
     file_id = cur_chat_session.file_id
     if file_type == "PROJECT":
         proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file_id).one()
-        proj.content_md = json.loads(content_md).get("project_document")
+
+        try:
+            parsed = json.loads(content_md)
+            proj.content_md = parsed.get("project_document")
+        except Exception:
+            proj.content_md = content_md  # 그냥 raw text 저장
+
         db.add(proj)
         return proj
 
@@ -240,39 +246,51 @@ def store_document_content(
             )
             .one()
         )
-        if cur_chat_session.file_type == "PRD":
-            doc.content_md = json.loads(content_md).get("prd_document")
-        elif cur_chat_session.file_type == "USER_STORY":
-            doc.content_md = json.loads(content_md).get("user_story_document")
-        elif cur_chat_session.file_type == "SRS":
-            doc.content_md = json.loads(content_md).get("srs_document")
+
+        try:
+            parsed = json.loads(content_md)
+            if cur_chat_session.file_type == "PRD":
+                doc.content_md = parsed.get("prd_document")
+            elif cur_chat_session.file_type == "USER_STORY":
+                doc.content_md = json.loads(content_md).get("user_story_document")
+            elif cur_chat_session.file_type == "SRS":
+                doc.content_md = json.loads(content_md).get("srs_document")
+        except Exception:
+            doc.content_md = content_md
+
         doc.content_md = content_md
         db.add(doc)
         return doc
 
     elif file_type == "TASK":
-        task = db.query(Task).filter(Task.assignee_id == user_id, Task.id == file_id).one_or_none()
-        content = json.loads(content_md).get("subtasks")
+        task = db.query(Task).filter(Task.id == file_id).one_or_none()
+        try:
+            parsed = json.loads(content_md)
+            content = parsed.get("subtasks")
+        except Exception:
+            content = content_md  # 그냥 raw text 저장
+
         if task is None:  # 미생성인 Doc인 경우
             for subtask in content:
                 data = Task(
                     project_id=project_id,
                     title=subtask["title"],
-                    task_type=content["assigned_role"],
-                    description_md=content["description"],
+                    description_md=subtask["description"],
                 )
                 db.add(data)
 
         else:  # 이미 생성된 Doc인 경우, TASK 모두 지우고 새로 생성
-            db.query(Task).filter(
-                Task.assignee_id == user_id, Task.project_id == project_id
-            ).delete()
+            db.query(Task).filter(Task.project_id == project_id).delete()
+            try:
+                parsed = json.loads(content_md)
+                content = parsed.get("subtasks")
+            except Exception:
+                content = content_md  # 그냥 raw text 저장
             for subtask in content:
                 data = Task(
                     project_id=project_id,
                     title=subtask["title"],
-                    task_type=content["assigned_role"],
-                    description_md=content["description"],
+                    description_md=subtask["description"],
                 )
                 db.add(data)
 
@@ -306,7 +324,7 @@ def create_chat_session_with_message_service(
 
     # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록,
     # cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
-    attached_info_to_chat(user_id, chat_session.id, file, file_type, db)
+    attached_info_to_chat(user_id, chat_session.id, request, file, file_type, db)
 
     # 사용자 입력 메시지 저장
     db.add(
@@ -335,10 +353,15 @@ def create_chat_session_with_message_service(
 
 
 def attached_info_to_chat(
-    user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session
+    user_id: str,
+    chat_session_id: int,
+    request: ChatSessionCreateRequest,
+    file: Any,
+    file_type: str,
+    db: Session,
 ) -> None:
     # 문서 내용 작성
-    insert_file_info_repo(user_id, chat_session_id, file, file_type, db)
+    insert_file_info_repo(user_id, chat_session_id, request, file, file_type, db)
     db.commit()
 
 
@@ -383,7 +406,7 @@ def create_and_check_file_id(
             if request.file_type in (FileType.prd, FileType.userstory, FileType.srs):
                 file, file_type = create_file_repo(user_id, request, db)
             elif request.file_type is FileType.task:  # task 는 ai마지막에 생성
-                pass
+                return None, file_type
             elif request.file_type is FileType.project:
                 raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
             else:
@@ -421,7 +444,12 @@ def create_chat_session(user_id: str, file: Any, file_type: str, db: Session) ->
 
 
 def insert_file_info_repo(
-    user_id: str, chat_session_id: int, file: Any, file_type: str, db: Session
+    user_id: str,
+    chat_session_id: int,
+    request: ChatSessionCreateRequest,
+    file: Any,
+    file_type: str,
+    db: Session,
 ):
     parts: list[str] = []
 
@@ -488,7 +516,7 @@ def insert_file_info_repo(
     elif file_type == "TASK":
         proj = (
             db.query(Project)
-            .filter(Project.owner_id == user_id, Project.id == file.project_id)
+            .filter(Project.owner_id == user_id, Project.id == request.project_id)
             .one_or_none()
         )
         if not proj:
@@ -524,7 +552,6 @@ def check_file_exist_repo(
     user_id: str, request: ChatSessionCreateRequest, db: Session
 ) -> tuple[Any, str] | tuple[None, str]:
     # request body의 project id와 file_type 조합으로 유무 판별
-    file = None
     # type = project인 경우 project 수정임
     if request.file_type is FileType.project:
         try:
@@ -553,13 +580,8 @@ def check_file_exist_repo(
             return doc, doc_type
 
         elif request.file_type is FileType.task:  # task일 경우
-            doc_type = request.file_type.value.upper()
-            file = (
-                db.query(Task)
-                .filter(Task.project_id == request.project_id, Task.assignee_id == user_id)
-                .first()
-            )
-            temp_type = "TASK"
+            temp_type = request.file_type.value.upper()
+            file = db.query(Task).filter(Task.project_id == request.project_id).first()
             return file, temp_type
 
         else:
