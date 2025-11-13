@@ -275,8 +275,17 @@ class Task(Base):
         project_id: 프로젝트 외래키
         title: 태스크 제목
         description: 태스크 설명 (CLOB)
-        status: 태스크 상태 (VARCHAR2 + CHECK: 'pending', 'in_progress', 'completed', 'blocked')
-        priority: 우선순위 (VARCHAR2 + CHECK: 'low', 'medium', 'high', 'urgent')
+        description_md: 태스크 설명 마크다운 (CLOB)
+        type: 태스크 타입 (VARCHAR2 + CHECK: 'feat', 'bug', 'docs', 'design', 'refactor')
+        source: 태스크 생성 소스 (VARCHAR2 + CHECK: 'MCP', 'USER', 'AI')
+        status: 태스크 상태 (VARCHAR2 + CHECK: 'todo', 'in_progress', 'review', 'done')
+        priority: 우선순위 (INTEGER, 0-10)
+        tags: 태그 목록 (CLOB, JSON 배열 문자열)
+        due_at: 마감일 (TIMESTAMP)
+        result_files: 생성/수정된 파일 목록 (CLOB, JSON 배열 문자열)
+        summary: 작업 요약 (CLOB)
+        duration: 작업 소요 시간 (초 단위, INTEGER)
+        result_logs: 결과 로그 (CLOB, 마크다운 형식)
         created_at: 생성 시간
         updated_at: 수정 시간
     
@@ -309,17 +318,57 @@ class Task(Base):
         Text,
         comment="태스크 설명 (CLOB)",
     )
+    description_md = Column(
+        CLOB,
+        comment="태스크 설명 마크다운 (CLOB)",
+    )
+    type = Column(
+        String(50),
+        nullable=False,
+        default="feat",
+        comment="태스크 타입",
+    )
+    source = Column(
+        String(50),
+        nullable=False,
+        default="USER",
+        comment="태스크 생성 소스",
+    )
     status = Column(
         String(50),
         nullable=False,
-        default="pending",
+        default="todo",
         comment="태스크 상태",
     )
     priority = Column(
-        String(50),
+        Integer,
         nullable=False,
-        default="medium",
-        comment="우선순위",
+        default=5,
+        comment="우선순위 (0-10)",
+    )
+    tags = Column(
+        CLOB,
+        comment="태그 목록 (JSON 배열 문자열)",
+    )
+    due_at = Column(
+        DateTime(timezone=True),
+        comment="마감일",
+    )
+    result_files = Column(
+        CLOB,
+        comment="생성/수정된 파일 목록 (JSON 배열 문자열)",
+    )
+    summary = Column(
+        CLOB,
+        comment="작업 요약",
+    )
+    duration = Column(
+        Integer,
+        comment="작업 소요 시간 (초 단위)",
+    )
+    result_logs = Column(
+        CLOB,
+        comment="결과 로그 (마크다운 형식)",
     )
     created_at = Column(
         DateTime,
@@ -350,11 +399,19 @@ class Task(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'in_progress', 'completed', 'blocked')",
+            "status IN ('todo', 'in_progress', 'review', 'done')",
             name="chk_task_status",
         ),
         CheckConstraint(
-            "priority IN ('low', 'medium', 'high', 'urgent')",
+            "type IN ('feat', 'bug', 'docs', 'design', 'refactor')",
+            name="chk_task_type",
+        ),
+        CheckConstraint(
+            "source IN ('MCP', 'USER', 'AI')",
+            name="chk_task_source",
+        ),
+        CheckConstraint(
+            "priority >= 0 AND priority <= 10",
             name="chk_task_priority",
         ),
     )
