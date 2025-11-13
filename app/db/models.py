@@ -22,7 +22,8 @@ from sqlalchemy import (  # type: ignore
     Text,
     DateTime,
     ForeignKey,
-    CheckConstraint, text, CLOB, func, UniqueConstraint, Index,
+
+    CheckConstraint, text, CLOB, func, UniqueConstraint, Index, TIMESTAMP,
 )
 from sqlalchemy.orm import relationship  # type: ignore
 
@@ -133,12 +134,12 @@ class Project(Base):
 class Document(Base):
     """문서 모델
     
-    프로젝트의 문서(PRD, UserStory, SRS 등)를 저장합니다.
+    프로젝트의 문서(PRD, User_Story, SRS 등)를 저장합니다.
     
     Attributes:
         id: 문서 고유 ID
         project_id: 프로젝트 외래키
-        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'USERSTORY', 'SRS')
+        type: 문서 타입 (VARCHAR2 + CHECK: 'PRD', 'USER_STORY', 'SRS')
         title: 문서 제목
         content_md: 문서 내용 (CLOB - 긴 텍스트 저장)
         author_id: 만든 사람
@@ -186,6 +187,89 @@ class Document(Base):
         "Project",
         back_populates="documents",
     )
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        comment="채팅 세션 고유 ID"
+    )
+
+    file_type = Column(
+        String(20),
+        nullable=False,
+        comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)"
+    )
+
+    file_id = Column(
+        Integer,
+        nullable=False,
+        comment="연결된 파일 ID"
+    )
+
+    user_id = Column(
+        String(120),
+        nullable=False,
+        comment="세션 소유자 ID"
+    )
+
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=text("SYSTIMESTAMP"),
+        nullable=False,
+        comment="세션 생성 시간"
+    )
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="메시지 고유 ID"
+    )
+
+    session_id = Column(
+        Integer,
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="연결된 채팅 세션 ID"
+    )
+
+    role = Column(
+        String(50),
+        nullable=False,
+        comment="메시지 주체 (user, assistant, system, tool)"
+    )
+
+    user_id = Column(
+        String(120),
+        nullable=True,
+        comment="사용자 ID"
+    )
+
+    content = Column(
+        CLOB,
+        nullable=True,
+        comment="메시지 내용 (텍스트)"
+    )
+
+    tool_calls_json = Column(
+        CLOB,
+        nullable=True,
+        comment="AI tool 호출 정보(JSON 문자열)"
+    )
+
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=text("SYSTIMESTAMP"),
+        nullable=False,
+        comment="메시지 생성 시각"
+    )
+
 
 
 class Task(Base):
