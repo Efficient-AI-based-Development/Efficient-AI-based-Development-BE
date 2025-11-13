@@ -51,7 +51,7 @@ class ProjectRead(ProjectBase):
 # 목록 응답
 class PageMeta(BaseModel):
     page: int
-    page_size: int = Field(..., alias="pageSize")
+    page_size: int = Field(..., alias="page_size")
     total: int
     model_config = ConfigDict(populate_by_name=True)
 
@@ -74,5 +74,5 @@ class ProjectDeleteResponse(BaseModel):
 class PaginationParams(BaseModel):
     q: str | None = None
     page: int = 1
-    page_size: int = Field(10, alias="pageSize")
+    page_size: int = Field(10, alias="page_size")
     model_config = ConfigDict(populate_by_name=True)

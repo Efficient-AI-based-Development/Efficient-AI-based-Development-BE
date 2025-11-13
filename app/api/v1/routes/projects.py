@@ -31,9 +31,9 @@ def create_project(
     return create_project_service(request, user_id, db)
 
 
-@router.get("/{projectID}", response_model=ProjectRead, status_code=200)
-def get_project(projectID: int, db: Session = Depends(get_db)):
-    return get_project_service(project_id=projectID, db=db)
+@router.get("/{project_id}", response_model=ProjectRead, status_code=200)
+def get_project(project_id: int, db: Session = Depends(get_db)):
+    return get_project_service(project_id=project_id, db=db)
 
 
 @router.get("", response_model=ProjectPage, status_code=200)
@@ -45,18 +45,18 @@ def get_project_list(
     return get_project_list_service(params, user_id, db)
 
 
-@router.patch("/{projectID}", response_model=ProjectRead, status_code=200)
+@router.patch("/{project_id}", response_model=ProjectRead, status_code=200)
 def update_project(
-    projectID: int,
+    project_id: int,
     request: ProjectUpdateRequest,
     user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db),
 ):
-    return update_project_service(project_id=projectID, user_id=user_id, request=request, db=db)
+    return update_project_service(project_id=project_id, user_id=user_id, request=request, db=db)
 
 
-@router.delete("/{projectID}", response_model=ProjectDeleteResponse, status_code=200)
+@router.delete("/{project_id}", response_model=ProjectDeleteResponse, status_code=200)
 def delete_project(
-    projectID: int, user_id: str = Header(..., alias="X-User-ID"), db: Session = Depends(get_db)
+    project_id: int, user_id: str = Header(..., alias="X-User-ID"), db: Session = Depends(get_db)
 ):
-    return delete_project_service(project_id=projectID, user_id=user_id, db=db)
+    return delete_project_service(project_id=project_id, user_id=user_id, db=db)
