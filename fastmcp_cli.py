@@ -107,18 +107,52 @@ def status() -> None:
         raise typer.Exit(code=1) from exc
 
 
+def _build_system_prompt(project_id: Optional[str] = None) -> str:
+    """프로젝트 컨텍스트를 포함한 시스템 프롬프트 생성."""
+    base_prompt = "You are an assistant helping developers with their projects."
+    if project_id:
+        base_prompt += f" The current project ID is {project_id}."
+    return base_prompt
+
+
 @app.command()
 def run(
-    prompt: str = typer.Option(
-        "이번 sprint 요약해줘",
-        "--prompt",
-        "-m",
-        help="실행할 사용자 프롬프트",
+    prompt: Optional[str] = typer.Argument(
+        None,
+        help="실행할 사용자 프롬프트 또는 자연어 명령어 (예: '프로젝트 JYVP의 다음 작업 진행')",
+    ),
+    project_id: Optional[str] = typer.Option(
+        None,
+        "--project",
+        "-p",
+        help="프로젝트 ID (자연어 명령어에 포함되어 있으면 생략 가능)",
     ),
 ) -> None:
-    """fastMCP 서버를 통해 AI 채팅을 실행합니다."""
+    """fastMCP 서버를 통해 AI 채팅을 실행합니다.
+    
+    자연어 명령어와 직접 프롬프트를 모두 지원합니다.
+    
+    예시:
+        # 직접 프롬프트
+        fastmcp run "이번 sprint 요약해줘"
+        
+        # 자연어 명령어 (vooster.ai 스타일)
+        fastmcp run "프로젝트 JYVP의 다음 작업 진행"
+        fastmcp run "프로젝트 JYVP의 T-001 작업 수행"
+        
+        # 프로젝트 ID 명시
+        fastmcp run "다음 작업 진행" --project JYVP
+    """
     config = load_config()
     project = load_project()
+    
+    # 프로젝트 ID 우선순위: 명령어 옵션 > 프로젝트 파일 > 자연어에서 추출
+    resolved_project_id = project_id or project.get("project")
+    
+    # 프롬프트가 없으면 대화형으로 입력받기
+    if prompt is None:
+        prompt = typer.prompt("프롬프트를 입력하세요", default="이번 sprint 요약해줘")
+    
     provider = project.get("provider", "chatgpt")
     if provider in PROVIDER_MAP:
         provider_key, default_model = PROVIDER_MAP[provider]
@@ -126,18 +160,27 @@ def run(
         provider_key = project.get("provider_key", provider)
         default_model = project.get("model", "gpt-4o-mini")
 
+    # 시스템 프롬프트에 프로젝트 컨텍스트 추가
+    system_content = _build_system_prompt(resolved_project_id)
+    
+    # 자연어 명령어를 더 명확하게 처리하기 위한 컨텍스트 추가
+    user_content = prompt
+    if resolved_project_id and "프로젝트" in prompt and resolved_project_id not in prompt:
+        # 자연어에 프로젝트 ID가 없으면 추가
+        user_content = f"프로젝트 {resolved_project_id}의 {prompt}"
+
     payload = {
         "provider": provider_key,
         "model": project.get("model", default_model),
         "messages": [
-            {"role": "system", "content": "You are an assistant helping developers."},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
         ],
         "temperature": 0.2,
-        "max_tokens": 400,
+        "max_tokens": 2000,  # 더 긴 응답을 위해 증가
     }
 
-    typer.echo("fastMCP 서버로 요청을 전송 중입니다...")
+    typer.echo(f"fastMCP 서버로 요청을 전송 중입니다... (프로젝트: {resolved_project_id or '미지정'})")
     try:
         resp = httpx.post(
             f"{config['base_url']}/ai/chat",

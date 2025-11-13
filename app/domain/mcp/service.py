@@ -383,9 +383,11 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. 에이전트에서 실행",
-                            description="에이전트 터미널(예: Cursor 커맨드 팔레트)에서 아래 명령을 실행하면 작업을 진행할 수 있습니다.",
+                            description="에이전트 터미널(예: Cursor 커맨드 팔레트)에서 아래 명령을 실행하면 작업을 진행할 수 있습니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(text="fastmcp run --project <PROJECT_ID>"),
+                                MCPGuideCommand(text="fastmcp run \"프로젝트 <PROJECT_ID>의 다음 작업 진행\""),
+                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
+                                MCPGuideCommand(text="fastmcp run \"이번 sprint 요약해줘\""),
                             ],
                         ),
                     ],
@@ -411,9 +413,11 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. 명령 실행하기",
-                            description="에이전트에서 아래 명령을 실행하거나 버튼을 눌러 작업을 시작합니다.",
+                            description="에이전트에서 아래 명령을 실행하거나 버튼을 눌러 작업을 시작합니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(text="fastmcp run --project <PROJECT_ID>"),
+                                MCPGuideCommand(text="fastmcp run \"프로젝트 <PROJECT_ID>의 다음 작업 진행\""),
+                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
+                                MCPGuideCommand(text="fastmcp run \"이번 sprint 요약해줘\""),
                             ],
                         ),
                     ],
@@ -450,9 +454,11 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. 에이전트 실행",
-                            description="Claude Code에서 MCP 프로젝트를 실행하면 연결됩니다.",
+                            description="Claude Code에서 MCP 프로젝트를 실행하면 연결됩니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(text="fastmcp run --provider claude --project <PROJECT_ID>"),
+                                MCPGuideCommand(text="fastmcp run \"프로젝트 <PROJECT_ID>의 다음 작업 진행\""),
+                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
+                                MCPGuideCommand(text="fastmcp run \"이번 sprint 요약해줘\""),
                             ],
                         ),
                     ],
@@ -478,9 +484,11 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="작업 실행",
-                            description="명령어를 실행하거나 Claude Code에서 MCP 실행 버튼을 눌러주세요.",
+                            description="명령어를 실행하거나 Claude Code에서 MCP 실행 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(text="fastmcp run --provider claude --project <PROJECT_ID>"),
+                                MCPGuideCommand(text="fastmcp run \"프로젝트 <PROJECT_ID>의 다음 작업 진행\""),
+                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
+                                MCPGuideCommand(text="fastmcp run \"이번 sprint 요약해줘\""),
                             ],
                         ),
                     ],
@@ -516,9 +524,11 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. Cursor에서 실행",
-                            description="`Cmd+Shift+P` → `Open MCP Project` 후 아래 명령을 실행하거나 UI 버튼을 눌러주세요.",
+                            description="`Cmd+Shift+P` → `Open MCP Project` 후 아래 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(text="fastmcp run --provider cursor --project <PROJECT_ID>"),
+                                MCPGuideCommand(text="fastmcp run \"프로젝트 <PROJECT_ID>의 다음 작업 진행\""),
+                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
+                                MCPGuideCommand(text="fastmcp run \"이번 sprint 요약해줘\""),
                             ],
                         ),
                     ],
@@ -544,9 +554,11 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="Cursor에서 연결 확인",
-                            description="Cursor Command Palette에서 MCP 프로젝트를 선택하면 연결됩니다.",
+                            description="Cursor Command Palette에서 MCP 프로젝트를 선택하면 연결됩니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(text="fastmcp run --provider cursor --project <PROJECT_ID>"),
+                                MCPGuideCommand(text="fastmcp run \"프로젝트 <PROJECT_ID>의 다음 작업 진행\""),
+                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
+                                MCPGuideCommand(text="fastmcp run \"이번 sprint 요약해줘\""),
                             ],
                         ),
                     ],
