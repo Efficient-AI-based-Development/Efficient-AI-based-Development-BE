@@ -34,6 +34,12 @@ RUN uv pip install --system \
 # Stage 2: Runtime stage
 FROM python:3.11-slim
 
+WORKDIR /app
+
+# Copy installed packages from builder image
+COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
+COPY --from=builder /usr/local/bin /usr/local/bin
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
