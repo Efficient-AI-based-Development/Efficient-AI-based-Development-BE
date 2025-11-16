@@ -1,14 +1,16 @@
+import httpx
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, Depends
 from datetime import timedelta, datetime, timezone
 from jose import jwt, JWTError
 
 from app.db.database import get_db
-from app.schemas.auth import TokenPair, LoginRequest
 
+
+BACKEND_BASE_URL = "http://localhsot:8000"
 SECRET_KEY = "super-secret-key"
 ALGORITHM = "HS256"
 
@@ -21,44 +23,9 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
 )
 
-def login_service(request: LoginRequest, db: Session) -> TokenPair:
-    user = (
-        db.query(User)
-        .filter(User.id == request.user_id)
-        .one_or_none()
-    )
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User does not exist",
-        )
-
-    if not verify_password(request.user_password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password",
-        )
-
-    # 3) access / refresh token 생성
-    access_token = create_access_token(user_id=user.id)
-    refresh_token = create_refresh_token(user_id=user.id)
-
-    # 4) 응답
-    return TokenPair(
-        access_token=access_token,
-        refresh_token=refresh_token,
-    )
-
-def hash_password(password: str):
-    return pwd_context.hash(password)
-
-def verify_password(plain_pw: str, hashed_pw: str):
-    return pwd_context.verify(plain_pw, hashed_pw)
-
 def create_access_token(user_id: str) -> str:
     expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return create_token(user_id, "access", expires)
-
 
 def create_refresh_token(user_id: str) -> str:
     expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -92,3 +59,55 @@ def get_current_user(token: str = Depends(oauth2_scheme), db : Session = Depends
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+async def exchange_code_for_token(code: str) -> dict:
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(token_url, data=data)
+        if res.status_code != 200:
+            print("Token error:", res.text)
+            raise HTTPException(400, "구글 토큰 발급 실패")
+
+        return res.json()
+
+async def get_google_userinfo(access_token: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if res.status_code != 200:
+            print("Userinfo error:", res.text)
+            raise HTTPException(400, "구글 유저 정보 조회 실패")
+        return res.json()
+
+def get_or_create_user_from_google(userinfo: dict, db: Session) -> User:
+    google_id = userinfo["sub"]
+    email = userinfo.get("email")
+    name = userinfo.get("name", "NoName")
+
+    social_id = f"google_{google_id}"
+
+    user = db.query(User).filter(User.user_id == social_id).one_or_none()
+    if user:
+        return user
+
+    # 처음 로그인 → 자동 회원가입
+    user = User(
+        user_id=social_id,  # PK
+        email=email,
+        display_name=name,
+        password_hash="",  # 소셜 로그인은 비밀번호 필요 없음
+        created_at=datetime.utcnow(),  # 있으면
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
