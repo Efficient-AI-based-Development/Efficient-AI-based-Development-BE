@@ -1,12 +1,18 @@
+from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+
+from fastapi import HTTPException, status, Depends
 from datetime import timedelta, datetime, timezone
-from jose import jwt
+from jose import jwt, JWTError
+
+from app.db.database import get_db
 from app.schemas.auth import TokenPair, LoginRequest
 
 SECRET_KEY = "super-secret-key"
 ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -69,3 +75,20 @@ def create_token(user_id: str, token_type: str, expires_delta: timedelta) -> str
 
     encoded_jwt = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def get_current_user(token: str = Depends(oauth2_scheme), db : Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user = db.query(User).(User.id == user_id).one_or_none()
+        if user is None:
+            raise HTTPException(401, "User not found")
+        return user_id
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
