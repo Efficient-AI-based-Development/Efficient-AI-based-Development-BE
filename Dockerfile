@@ -29,7 +29,10 @@ RUN uv pip install --system \
     pydantic-settings \
     python-multipart \
     openai \
-    fastmcp
+    fastmcp \
+    python-jose[cryptography] \
+    passlib[bcrypt] \
+    httpx
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim
