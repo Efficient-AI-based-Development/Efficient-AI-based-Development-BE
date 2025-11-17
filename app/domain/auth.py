@@ -2,9 +2,9 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.db.models import SocialAccount, User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+auth_scheme = HTTPBearer()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -52,21 +52,34 @@ def create_token(user_id: str, token_type: str, expires_delta: timedelta) -> str
     return encoded_jwt
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(auth_scheme), db: Session = Depends(get_db)
+):
+    token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        user = db.query(User).filter(User.user_id == user_id).one_or_none()
-        if user is None:
-            raise HTTPException(401, "User not found")
-        return user_id
-
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id: str | None = payload.get("sub")
+    token_type: str | None = payload.get("type")
+
+    if user_id is None or token_type != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    user = db.query(User).filter(User.user_id == user_id).one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    return user
 
 
 async def exchange_code_for_token(code: str) -> dict:
