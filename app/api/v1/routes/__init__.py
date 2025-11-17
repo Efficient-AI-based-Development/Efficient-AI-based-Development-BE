@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.routes import chats, documents, generate, insights, mcp, projects, tasks
+from app.api.v1.routes import auth, chats, documents, generate, insights, mcp, projects, tasks
 
 router = APIRouter()
 
@@ -14,3 +14,4 @@ router.include_router(tasks.router)
 router.include_router(insights.router)
 router.include_router(mcp.router)
 router.include_router(chats.router)
+router.include_router(auth.router)
