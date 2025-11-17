@@ -2,25 +2,25 @@ import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
+from app.db.models import User
 from app.domain.auth import (
+    ALGORITHM,
+    SECRET_KEY,
     create_access_token,
     create_refresh_token,
     exchange_code_for_token,
-    get_current_user,
     get_google_userinfo,
     get_or_create_user_from_google,
 )
 from app.schemas.auth import TokenPair
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def get_me(current_user: str = Depends(get_current_user)):
-    return {"user_id": current_user}
 
 
 @router.get("/login/google")
@@ -39,6 +39,41 @@ def google_login():
     }
     url = f"{base_url}?{urllib.parse.urlencode(params)}"
     return RedirectResponse(url)
+
+
+refresh_scheme = HTTPBearer(auto_error=True)
+
+
+@router.post("/refresh", response_model=TokenPair)
+def refresh_token(
+    credentials: HTTPAuthorizationCredentials = Depends(refresh_scheme),
+    db: Session = Depends(get_db),
+):
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    user_id: str | None = payload.get("sub")
+    token_type: str | None = payload.get("type")
+
+    if user_id is None or token_type != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid refresh token payload")
+
+    user = db.query(User).filter(User.user_id == user_id).one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    # 새 토큰 생성
+    user_id = user.user_id
+    access_jwt = create_access_token(user_id)
+    refresh_jwt = create_refresh_token(user_id)
+
+    return TokenPair(access_token=access_jwt, refresh_token=refresh_jwt)
 
 
 @router.get("/login/google/callback", response_model=TokenPair)
