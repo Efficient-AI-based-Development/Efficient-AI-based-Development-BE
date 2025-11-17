@@ -34,8 +34,10 @@ def create_project(
 
 
 @router.get("/{project_id}", response_model=ProjectRead, status_code=200)
-def get_project(project_id: int, db: Session = Depends(get_db)):
-    return get_project_service(project_id=project_id, db=db)
+def get_project(
+    project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return get_project_service(project_id=project_id, user_id=current_user.user_id, db=db)
 
 
 @router.get("", response_model=ProjectPage, status_code=200)
