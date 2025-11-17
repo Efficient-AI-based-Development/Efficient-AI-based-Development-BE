@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str | None = None
+
+    BACKEND_BASE_URL: str | None = None
+    SECRET_KEY: str | None = None
+    ALGORITHM: str | None = None
+
     @property
     def get_database_url(self) -> str:
         """데이터베이스 연결 URL을 반환합니다.

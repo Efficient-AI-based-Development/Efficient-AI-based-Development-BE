@@ -1,13 +1,14 @@
 import asyncio
 from contextlib import suppress
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
 from app.db.database import get_db
-from app.db.models import ChatMessage, ChatSession
+from app.db.models import ChatMessage, ChatSession, User
+from app.domain.auth import get_current_user
 from app.domain.chat import (
     CANCEL_SENTINEL,
     END_SENTINEL,
@@ -27,7 +28,7 @@ from app.schemas.chat import (
     StoreFileResponse,
 )
 
-router = APIRouter(prefix="/chats", tags=["chats"])
+router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user)])
 
 TIMEOUT = 300
 
@@ -36,13 +37,15 @@ TIMEOUT = 300
 @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
 async def start_chat_with_init_file(
     request: ChatSessionCreateRequest,
-    user_id: str = Header(..., alias="X-User-ID"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
 
-    resp = create_chat_session_with_message_service(user_id, request.content_md, request, db)
+    resp = create_chat_session_with_message_service(
+        current_user.user_id, request.content_md, request, db
+    )
 
-    await ensure_worker(user_id, resp.chat_id, db)  # ① 워커 보장
+    await ensure_worker(current_user.user_id, resp.chat_id, db)  # ① 워커 보장
     await SESSION_IN[resp.chat_id].put(request.content_md)
 
     return resp
@@ -114,13 +117,13 @@ async def stream(chat_session_id: int, request: Request, db: Session = Depends(g
 async def send_message(
     chat_session_id: int,
     request: ChatMessageRequest,
-    user_id: str = Header(..., alias="X-User-ID"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
 
     sess = (
         db.query(ChatSession)
-        .filter(ChatSession.user_id == user_id, ChatSession.id == chat_session_id)
+        .filter(ChatSession.user_id == current_user.user_id, ChatSession.id == chat_session_id)
         .one_or_none()
     )
     if not sess:
@@ -135,13 +138,13 @@ async def send_message(
             session_id=chat_session_id,
             role="user",
             content=request.content_md,
-            user_id=user_id,
+            user_id=current_user.user_id,
         )
     )
     db.commit()
 
     # worker 보장
-    await ensure_worker(user_id, chat_session_id, db)
+    await ensure_worker(current_user.user_id, chat_session_id, db)
 
     # 큐에 user 메시지 삽입
     await SESSION_IN[chat_session_id].put(request.content_md)
@@ -152,12 +155,12 @@ async def send_message(
 @router.post("/{chat_session_id}/cancel", status_code=202)
 async def cancel_session(
     chat_session_id: int,
-    user_id: str = Header(..., alias="X-User-ID"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     session = (
         db.query(ChatSession)
-        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id)
+        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == current_user.user_id)
         .first()
     )
 
@@ -212,9 +215,9 @@ async def cancel_session(
 def store_file(
     chat_session_id: int,
     request: StoreFileRequest,
-    user_id: str = Header(..., alias="X-User-ID"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return apply_ai_last_message_to_content_service(
-        user_id, chat_session_id, request.project_id, db
+        current_user.user_id, chat_session_id, request.project_id, db
     )

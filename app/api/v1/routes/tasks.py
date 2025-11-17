@@ -20,7 +20,7 @@ from app.schemas.task import (
     TaskUpdate,
 )
 
-router = APIRouter(tags=["tasks"])
+router = APIRouter(tags=["tasks"], dependencies=[Depends(get_db)])
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)

@@ -20,9 +20,9 @@ from app.schemas.project import (
 
 
 ##################### 서비스 정의 #####################
-def get_project_service(project_id: int, db: Session) -> ProjectRead:
+def get_project_service(project_id: int, user_id: str, db: Session) -> ProjectRead:
     try:
-        project = get_project_by_id(project_id, db)
+        project = get_project_by_id(project_id, user_id, db)
         return to_project_read(project)
     except NoResultFound:
         raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
@@ -153,8 +153,8 @@ def get_pagination_params(
 ##################### REPO 관리 #####################
 
 
-def get_project_by_id(project_id: int, db: Session) -> Project:
-    project = db.query(Project).filter(Project.id == project_id).one()
+def get_project_by_id(project_id: int, user_id: str, db: Session) -> Project:
+    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user_id).one()
     return project
 
 
