@@ -14,6 +14,8 @@
 - 모델은 양쪽 데이터베이스 모두 호환되도록 설계됨
 """
 
+import random
+import string
 from datetime import datetime
 from typing import Any
 
@@ -29,6 +31,7 @@ from sqlalchemy import (  # type: ignore
     String,
     Text,
     UniqueConstraint,
+    event,
     func,
     text,
 )
@@ -103,7 +106,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True, comment="프로젝트 고유 ID")
-    project_idx: Mapped[int] = mapped_column(nullable=False, comment="user별 프로젝트 idx")
+    project_idx: Mapped[str] = mapped_column(nullable=False, comment="user별 프로젝트 idx")
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="프로젝트 제목")
     content_md: Mapped[str] = mapped_column(comment="프로젝트 내용")
     status: Mapped[str] = mapped_column(
@@ -152,7 +155,29 @@ class Project(Base):
             "status IN ('not_started','in_progress','completed')",
             name="ck_projects_status",
         ),
+        UniqueConstraint(project_idx, name="uq_projects_project_idx"),
     )
+
+
+def rand4() -> str:
+    return "".join(random.choices(string.ascii_letters + string.digits, k=4))
+
+
+# INSERT 전에 자동으로 고유 project_idx 생성
+@event.listens_for(Project, "before_insert")
+def generate_project_idx(mapper, connection, target):
+    if target.project_idx:  # 이미 값 있으면 스킵
+        return
+
+    while True:
+        idx = rand4()
+        exists = connection.execute(
+            f"SELECT 1 FROM {Project.__tablename__} WHERE project_idx = :idx", {"idx": idx}
+        ).fetchone()
+
+        if not exists:
+            target.project_idx = idx
+            break
 
 
 class Document(Base):

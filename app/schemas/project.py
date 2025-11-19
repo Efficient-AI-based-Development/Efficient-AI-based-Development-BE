@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ProjectBase(BaseModel):
     id: int
-    project_idx: int
     title: str
     content_md: str | None = None
     content_md_json: dict[str, Any] | None = None
@@ -65,7 +64,6 @@ class ProjectPage(BaseModel):
 # 삭제 응답
 class ProjectDeleteResponse(BaseModel):
     id: int
-    project_idx: int
     title: str
     deleted_at: datetime
     model_config = ConfigDict(from_attributes=True)

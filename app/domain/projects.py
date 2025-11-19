@@ -116,7 +116,6 @@ def delete_project_service(project_id: int, user_id: str, db: Session) -> Projec
         project = delete_project_repo(project_id, user_id, db)
         resp = ProjectDeleteResponse(
             id=project.id,
-            project_idx=project.project_idx,
             title=project.title,
             deleted_at=datetime.now(UTC),
         )
