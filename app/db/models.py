@@ -33,6 +33,7 @@ from sqlalchemy import (  # type: ignore
     UniqueConstraint,
     event,
     func,
+    select,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship  # type: ignore
@@ -110,8 +111,9 @@ class Project(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="프로젝트 제목")
     content_md: Mapped[str] = mapped_column(comment="프로젝트 내용")
     status: Mapped[str] = mapped_column(
-        String(30), nullable=False, server_default=text("'in_progress'"), comment="프로젝트 상태"
+        String(30), nullable=False, server_default=text("todo"), comment="프로젝트 상태"
     )
+
     owner_id: Mapped[str] = mapped_column(String(120), comment="프로젝트 소유자")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -152,7 +154,7 @@ class Project(Base):
     # Check constraints
     __table_args__ = (
         CheckConstraint(
-            "status IN ('not_started','in_progress','completed')",
+            "status IN ('todo', 'in_progress', 'review', 'done')",
             name="ck_projects_status",
         ),
         UniqueConstraint(project_idx, name="uq_projects_project_idx"),
@@ -171,9 +173,9 @@ def generate_project_idx(mapper, connection, target):
 
     while True:
         idx = rand4()
-        exists = connection.execute(
-            f"SELECT 1 FROM {Project.__tablename__} WHERE project_idx = :idx", {"idx": idx}
-        ).fetchone()
+        stmt = select(Project.project_idx).where(Project.project_idx == idx).limit(1)
+
+        exists = connection.execute(stmt).fetchone()
 
         if not exists:
             target.project_idx = idx
@@ -259,10 +261,17 @@ class Document(Base):
         onupdate=func.now(),  # UPDATE 시 자동 갱신
         comment="수정 시각",
     )
+    status: Mapped[str] = mapped_column(
+        String(30), nullable=False, server_default=text("todo"), comment="문서 상태"
+    )
 
     # 테이블 제약 조건 및 인덱스
     __table_args__ = (
         CheckConstraint("type IN ('PRD','USER_STORY','SRS')", name="ck_documents_type"),
+        CheckConstraint(
+            "status IN ('todo', 'in_progress', 'review', 'done')",
+            name="ck_documents_status",
+        ),
         Index("ix_documents_project_type", "project_id", "type"),
     )
 

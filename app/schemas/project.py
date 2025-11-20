@@ -8,10 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ProjectBase(BaseModel):
     id: int
+    project_idx: str | None
     title: str
     content_md: str | None = None
     content_md_json: dict[str, Any] | None = None
-    status: Literal["not_started", "in_progress", "completed"] | None = None
+    status: Literal["todo", "in_progress", "review", "done"] | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
