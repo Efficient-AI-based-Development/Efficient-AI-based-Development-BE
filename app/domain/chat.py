@@ -43,6 +43,8 @@ class StateStation:
     task: asyncio.Task | None = None
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
 
+    last_doc: str | None = None
+
 
 SESSIONS: dict[int, StateStation] = {}
 
@@ -363,6 +365,8 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         doc = data.get("tasks")
                         msg = data.get("message")
 
+                station.last_doc = doc
+
                 await station.queue_out.put(
                     json.dumps(
                         {
@@ -457,15 +461,13 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
     )
     if cur_chat_session is None:
         raise HTTPException(404, "Chat session not found")
-    last_assistant_message = (
-        db.query(ChatMessage)
-        .filter(ChatMessage.session_id == chat_session_id, ChatMessage.role == "assistant")
-        .order_by(ChatMessage.id.desc())
-        .first()
-    )
-    if not last_assistant_message:
-        raise _http_404("No assistant message found for this session.")
-    updated_obj = store_document_content(user_id, cur_chat_session, project_id, last_assistant_message.content, db)
+    station = SESSIONS.get(chat_session_id)
+    if station is None:
+        raise HTTPException(404, "Chat session not found")
+
+    if station.last_doc is None:
+        raise _http_404("No create File for this session.")
+    updated_obj = store_document_content(user_id, cur_chat_session, project_id, station.last_doc, db)
     db.commit()
 
     if updated_obj is None:  # Task 같은 경우에는 새로 생성되기 때문에 X
@@ -511,13 +513,12 @@ def store_document_content(
         doc = db.query(Document).filter(Document.author_id == user_id, Document.id == file_id, Document.type == file_type).one()
 
         try:
-            parsed = json.loads(content_md)
             if cur_chat_session.file_type == "PRD":
-                doc.content_md = parsed.get("prd_document")
+                doc.content_md = content_md
             elif cur_chat_session.file_type == "USER_STORY":
-                doc.content_md = json.loads(content_md).get("user_story_document")
+                doc.content_md = content_md
             elif cur_chat_session.file_type == "SRS":
-                doc.content_md = json.loads(content_md).get("srs_document")
+                doc.content_md = content_md
         except Exception:
             doc.content_md = content_md
 
@@ -526,34 +527,29 @@ def store_document_content(
         return doc
 
     elif file_type == "TASK":
-        task = db.query(Task).filter(Task.id == file_id).one_or_none()
-        try:
-            parsed = json.loads(content_md)
-            content = parsed.get("subtasks")
-        except Exception:
-            content = content_md  # 그냥 raw text 저장
+        tasks = db.query(Task).filter(Task.id == file_id).one_or_none()
+        parsed = None
+        parsed = json.loads(content_md)
 
-        if task is None:  # 미생성인 Doc인 경우
-            for subtask in content:
+        if tasks is None:  # 미생성인 Doc인 경우
+            for task in parsed:
                 data = Task(
                     project_id=project_id,
-                    title=subtask["title"],
-                    description_md=subtask["description"],
+                    title=task["title"],
+                    description_md=task["description"],
                 )
                 db.add(data)
 
         else:  # 이미 생성된 Doc인 경우, TASK 모두 지우고 새로 생성
             db.query(Task).filter(Task.project_id == project_id).delete()
-            try:
-                parsed = json.loads(content_md)
-                content = parsed.get("subtasks")
-            except Exception:
-                content = content_md  # 그냥 raw text 저장
-            for subtask in content:
+            parsed = None
+            parsed = json.loads(content_md)
+
+            for task in parsed:
                 data = Task(
                     project_id=project_id,
-                    title=subtask["title"],
-                    description_md=subtask["description"],
+                    title=task["title"],
+                    description_md=task["description"],
                 )
                 db.add(data)
 
