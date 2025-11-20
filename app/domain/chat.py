@@ -42,7 +42,7 @@ class StateStation:
     queue_out: asyncio.Queue[str] = field(default_factory=asyncio.Queue)
     task: asyncio.Task | None = None
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
-
+    last_msg: str | None = None
     last_doc: str | None = None
 
 
@@ -371,8 +371,10 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                     json.dumps(
                         {
                             "type": "data",
-                            "text": data,
-                        }
+                            "doc": doc,
+                            "message": msg,
+                        },
+                        ensure_ascii=False,  # 한글 깨지지 않게
                     )
                 )
 
@@ -528,11 +530,8 @@ def store_document_content(
 
     elif file_type == "TASK":
         tasks = db.query(Task).filter(Task.id == file_id).one_or_none()
-        parsed = None
-        parsed = json.loads(content_md)
-
         if tasks is None:  # 미생성인 Doc인 경우
-            for task in parsed:
+            for task in content_md:
                 data = Task(
                     project_id=project_id,
                     title=task["title"],
@@ -542,13 +541,12 @@ def store_document_content(
 
         else:  # 이미 생성된 Doc인 경우, TASK 모두 지우고 새로 생성
             db.query(Task).filter(Task.project_id == project_id).delete()
-            parsed = None
-            parsed = json.loads(content_md)
 
-            for task in parsed:
+            for task in content_md:
                 data = Task(
                     project_id=project_id,
                     title=task["title"],
+                    description=task["description"],
                     description_md=task["description"],
                 )
                 db.add(data)
@@ -748,9 +746,7 @@ def insert_file_info_repo(
             content = _get_doc(t)
             if content:
                 parts.append(f"{t}:\n{content}\n")
-        task = (
-            db.query(Task).filter(Task.assignee_id == user_id, Task.project_id == file.project_id).order_by(Task.id.asc()).all()
-        )
+        task = db.query(Task).filter(Task.project_id == file.project_id).order_by(Task.id.asc()).all()
         for i, t in enumerate(task, start=1):
             content_md = t.description_md or ""
             parts.append(f"TASK {i}번:\n{content_md}\n")
