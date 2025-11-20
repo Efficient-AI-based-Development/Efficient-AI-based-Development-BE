@@ -44,9 +44,7 @@ def create_task_service(project_id: int, request: TaskCreate, db: Session) -> Ta
         db.rollback()
         print("DB Error:", e)
         traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def get_task_service(task_id: int, db: Session) -> TaskDetailResponse:
@@ -58,9 +56,7 @@ def get_task_service(task_id: int, db: Session) -> TaskDetailResponse:
     except NoResultFound:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     except SQLAlchemyError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def list_tasks_service(project_id: int, params: PaginationParams, db: Session) -> TaskListResponse:
@@ -75,19 +71,14 @@ def list_tasks_service(project_id: int, params: PaginationParams, db: Session) -
         per_page = min(max(10, params.page_size), 50)
         page = max(1, params.page or 1)
 
-        tasks_orm, total = get_task_list_repo(
-            project_id=project_id, q=q, page=page, per_page=per_page, db=db
-        )
+        tasks_orm, total = get_task_list_repo(project_id=project_id, q=q, page=page, per_page=per_page, db=db)
 
         total_pages = max(1, int((total + per_page - 1) / per_page))
 
         if page > total_pages:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"page는 최대 {total_pages}까지입니다. "
-                    f"(total={total}, page_size={params.page_size})",
-                ),
+                detail=(f"page는 최대 {total_pages}까지입니다. " f"(total={total}, page_size={params.page_size})",),
             )
 
         tasks: list[TaskResponse] = [to_task_response(t) for t in tasks_orm]
@@ -95,9 +86,7 @@ def list_tasks_service(project_id: int, params: PaginationParams, db: Session) -
 
         return TaskListResponse(data=tasks, meta=meta)
     except SQLAlchemyError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def update_task_service(task_id: int, request: TaskUpdate, db: Session) -> TaskDetailResponse:
@@ -114,9 +103,7 @@ def update_task_service(task_id: int, request: TaskUpdate, db: Session) -> TaskD
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     except SQLAlchemyError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def delete_task_service(task_id: int, db: Session) -> TaskDeleteResponse:
@@ -131,9 +118,7 @@ def delete_task_service(task_id: int, db: Session) -> TaskDeleteResponse:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     except SQLAlchemyError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def get_pagination_params(
@@ -145,10 +130,7 @@ def get_pagination_params(
     if page > page_size:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"페이지 번호(page)는 페이지 크기(page_size)보다 클 수 없습니다."
-                f" (page={page}, page_size={page_size})",
-            ),
+            detail=(f"페이지 번호(page)는 페이지 크기(page_size)보다 클 수 없습니다." f" (page={page}, page_size={page_size})",),
         )
     return PaginationParams(q=q, page_size=page_size, page=page)
 
@@ -180,9 +162,7 @@ def create_task_repo(project_id: int, request: TaskCreate, db: Session) -> Task:
     return task
 
 
-def get_task_list_repo(
-    project_id: int, q: str | None, page: int, per_page: int, db: Session
-) -> tuple[list[Task], int]:
+def get_task_list_repo(project_id: int, q: str | None, page: int, per_page: int, db: Session) -> tuple[list[Task], int]:
     """태스크 목록 조회 레포지토리 (페이지네이션)"""
     query = db.query(Task).filter(Task.project_id == project_id)
 

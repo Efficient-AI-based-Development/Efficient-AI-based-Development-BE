@@ -42,15 +42,11 @@ async def start_chat_with_init_file(
     db: Session = Depends(get_db),
 ):
 
-    resp = create_chat_session_with_message_service(
-        current_user.user_id, request.content_md, request, db
-    )
+    resp = create_chat_session_with_message_service(current_user.user_id, request.content_md, request, db)
 
     await ensure_worker(current_user.user_id, resp.chat_id, db)  # ① 워커 보장
     attached_info = (
-        db.query(ChatMessage)
-        .filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system")
-        .one_or_none()
+        db.query(ChatMessage).filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system").one_or_none()
     )
     content = ""
     if attached_info is None:
@@ -135,9 +131,7 @@ async def send_message(
 ):
 
     sess = (
-        db.query(ChatSession)
-        .filter(ChatSession.user_id == current_user.user_id, ChatSession.id == chat_session_id)
-        .one_or_none()
+        db.query(ChatSession).filter(ChatSession.user_id == current_user.user_id, ChatSession.id == chat_session_id).one_or_none()
     )
     if not sess:
         raise HTTPException(404, "chat session not found")
@@ -171,11 +165,7 @@ async def cancel_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    session = (
-        db.query(ChatSession)
-        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == current_user.user_id)
-        .first()
-    )
+    session = db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == current_user.user_id).first()
 
     if session is None:
         # 네 스타일 기준 -> 404 사용
@@ -231,6 +221,4 @@ def store_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return apply_ai_last_message_to_content_service(
-        current_user.user_id, chat_session_id, request.project_id, db
-    )
+    return apply_ai_last_message_to_content_service(current_user.user_id, chat_session_id, request.project_id, db)

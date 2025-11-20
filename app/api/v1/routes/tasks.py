@@ -35,9 +35,7 @@ def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TaskListResponse)
-def list_tasks(
-    project_id: int, params=Depends(get_pagination_params), db: Session = Depends(get_db)
-):
+def list_tasks(project_id: int, params=Depends(get_pagination_params), db: Session = Depends(get_db)):
     """태스크 목록 조회
 
     GET /api/v1/projects/{project_id}/tasks

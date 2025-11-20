@@ -52,9 +52,7 @@ def create_token(user_id: str, token_type: str, expires_delta: timedelta) -> str
     return encoded_jwt
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(auth_scheme), db: Session = Depends(get_db)
-):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme), db: Session = Depends(get_db)):
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

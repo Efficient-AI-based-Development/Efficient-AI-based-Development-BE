@@ -29,9 +29,7 @@ def create_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return create_document_service(
-        project_id=project_id, user_id=current_user.user_id, request=request, db=db
-    )
+    return create_document_service(project_id=project_id, user_id=current_user.user_id, request=request, db=db)
 
 
 @router.get("/projects/{project_id}/docs/{type}", response_model=DocumentRead, status_code=200)
@@ -41,9 +39,7 @@ def get_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return get_document_service(
-        project_id=project_id, type=type, user_id=current_user.user_id, db=db
-    )
+    return get_document_service(project_id=project_id, type=type, user_id=current_user.user_id, db=db)
 
 
 @router.patch("/projects/{project_id}/docs/{type}", response_model=DocumentRead, status_code=200)
@@ -54,13 +50,9 @@ def update_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return update_project_service(
-        project_id=project_id, type=type, user_id=current_user.user_id, request=request, db=db
-    )
+    return update_project_service(project_id=project_id, type=type, user_id=current_user.user_id, request=request, db=db)
 
 
 @router.get("/projects/{project_id}/docs", response_model=DocumentPage, status_code=200)
-def get_document_list(
-    project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+def get_document_list(project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return get_document_list_service(project_id=project_id, user_id=current_user.user_id, db=db)

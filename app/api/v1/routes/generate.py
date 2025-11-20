@@ -10,9 +10,7 @@ router = APIRouter(tags=["generation"])
 
 
 @router.post("/projects/{project_id}/generate", response_model=GenJobResponse, status_code=201)
-def create_generation_job(
-    project_id: int, request: GenerationRequest, db: Session = Depends(get_db)
-):
+def create_generation_job(project_id: int, request: GenerationRequest, db: Session = Depends(get_db)):
     """AI 생성 작업 시작
 
     POST /api/v1/projects/{project_id}/generate

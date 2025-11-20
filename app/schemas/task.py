@@ -18,9 +18,7 @@ class TaskBase(BaseModel):
         description="태스크 타입",
         examples=["feat", "bug", "docs", "design", "refactor"],
     )
-    source: str = Field(
-        default="USER", description="태스크 생성 소스", examples=["MCP", "USER", "AI"]
-    )
+    source: str = Field(default="USER", description="태스크 생성 소스", examples=["MCP", "USER", "AI"])
     status: str = Field(
         default="todo",
         description="태스크 상태",
@@ -109,11 +107,7 @@ class TaskResponse(TaskBase):
 
         if obj.result_files:
             try:
-                data["result_files"] = (
-                    json.loads(obj.result_files)
-                    if isinstance(obj.result_files, str)
-                    else obj.result_files
-                )
+                data["result_files"] = json.loads(obj.result_files) if isinstance(obj.result_files, str) else obj.result_files
             except (json.JSONDecodeError, TypeError):
                 data["result_files"] = []
         else:
@@ -178,9 +172,7 @@ class TaskLinkCreate(BaseModel):
 
     parent_task_id: int = Field(..., description="부모 태스크 ID")
     child_task_id: int = Field(..., description="자식 태스크 ID")
-    link_type: str = Field(
-        ..., description="링크 타입", examples=["blocks", "depends_on", "relates_to"]
-    )
+    link_type: str = Field(..., description="링크 타입", examples=["blocks", "depends_on", "relates_to"])
 
 
 class TaskLinkResponse(BaseModel):

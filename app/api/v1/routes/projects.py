@@ -34,9 +34,7 @@ def create_project(
 
 
 @router.get("/{project_id}", response_model=ProjectRead, status_code=200)
-def get_project(
-    project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+def get_project(project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return get_project_service(project_id=project_id, user_id=current_user.user_id, db=db)
 
 
@@ -56,13 +54,9 @@ def update_project(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return update_project_service(
-        project_id=project_id, user_id=current_user.user_id, request=request, db=db
-    )
+    return update_project_service(project_id=project_id, user_id=current_user.user_id, request=request, db=db)
 
 
 @router.delete("/{project_id}", response_model=ProjectDeleteResponse, status_code=200)
-def delete_project(
-    project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+def delete_project(project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return delete_project_service(project_id=project_id, user_id=current_user.user_id, db=db)

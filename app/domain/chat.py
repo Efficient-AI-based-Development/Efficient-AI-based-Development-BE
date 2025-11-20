@@ -38,12 +38,7 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
 
     def build_prompt(session_id: int, new_message: str, db: Session):
 
-        history = (
-            db.query(ChatMessage)
-            .filter(ChatMessage.session_id == session_id)
-            .order_by(ChatMessage.id.asc())
-            .all()
-        )
+        history = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.id.asc()).all()
 
         buf = []
         buf.append("=== SYSTEM CONTEXT ===\n")
@@ -176,13 +171,9 @@ def _ensure_enum(ft: FileType | str) -> FileType:
 
 
 ######################################### SERVICE #############################################
-def apply_ai_last_message_to_content_service(
-    user_id: str, chat_session_id: int, project_id: int, db: Session
-):
+def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, project_id: int, db: Session):
     cur_chat_session = (
-        db.query(ChatSession)
-        .filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id)
-        .one_or_none()
+        db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id).one_or_none()
     )
     if cur_chat_session is None:
         raise HTTPException(404, "Chat session not found")
@@ -194,9 +185,7 @@ def apply_ai_last_message_to_content_service(
     )
     if not last_assistant_message:
         raise _http_404("No assistant message found for this session.")
-    updated_obj = store_document_content(
-        user_id, cur_chat_session, project_id, last_assistant_message.content, db
-    )
+    updated_obj = store_document_content(user_id, cur_chat_session, project_id, last_assistant_message.content, db)
     db.commit()
 
     if updated_obj is None:  # Task 같은 경우에는 새로 생성되기 때문에 X
@@ -239,13 +228,7 @@ def store_document_content(
         return proj
 
     elif file_type in ("PRD", "USER_STORY", "SRS"):
-        doc = (
-            db.query(Document)
-            .filter(
-                Document.author_id == user_id, Document.id == file_id, Document.type == file_type
-            )
-            .one()
-        )
+        doc = db.query(Document).filter(Document.author_id == user_id, Document.id == file_id, Document.type == file_type).one()
 
         try:
             parsed = json.loads(content_md)
@@ -327,9 +310,7 @@ def create_chat_session_with_message_service(
     attached_info_to_chat(user_id, chat_session.id, request, file, file_type, db)
 
     # 사용자 입력 메시지 저장
-    db.add(
-        ChatMessage(session_id=chat_session.id, role="user", content=user_message, user_id=user_id)
-    )
+    db.add(ChatMessage(session_id=chat_session.id, role="user", content=user_message, user_id=user_id))
     db.commit()
 
     # 파일 프로젝트 새로 생성하는 경우 때문에 작성
@@ -365,20 +346,14 @@ def attached_info_to_chat(
     db.commit()
 
 
-def create_chat_message(
-    user_id: str, chat_session_id: int, role: str, content: str, db: Session
-) -> ChatMessage:
-    chat_message = ChatMessage(
-        user_id=user_id, session_id=chat_session_id, role=role, content=content
-    )
+def create_chat_message(user_id: str, chat_session_id: int, role: str, content: str, db: Session) -> ChatMessage:
+    chat_message = ChatMessage(user_id=user_id, session_id=chat_session_id, role=role, content=content)
     chat_message = create_chat_message_repo(chat_message, db)
     db.commit()
     return chat_message
 
 
-def create_and_check_file_id(
-    user_id: str, request: ChatSessionCreateRequest, db: Session
-) -> tuple[Any, str]:
+def create_and_check_file_id(user_id: str, request: ChatSessionCreateRequest, db: Session) -> tuple[Any, str]:
     # project_id = -1 인 경우 -> 프로젝트 생성
     if request.project_id == -1:
         if request.file_type is FileType.project:
@@ -401,17 +376,12 @@ def create_and_check_file_id(
 
         else:
             raise _http_400(
-                "project_id = -1 은 PROJECT 생성에만 사용할 수 있습니다. "
-                "문서/태스크는 기존 project_id가 필요합니다."
+                "project_id = -1 은 PROJECT 생성에만 사용할 수 있습니다. " "문서/태스크는 기존 project_id가 필요합니다."
             )
     else:  # 파일 존재 확인
 
         # Step 1. 프로젝트 존재 여부 + 권한 체크
-        project = (
-            db.query(Project)
-            .filter(Project.id == request.project_id, Project.owner_id == user_id)
-            .one_or_none()
-        )
+        project = db.query(Project).filter(Project.id == request.project_id, Project.owner_id == user_id).one_or_none()
         if project is None:
             # 여기서 프로젝트 없으면 세션 생성 금지
             raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
@@ -470,30 +440,18 @@ def insert_file_info_repo(
     parts: list[str] = []
 
     def _get_doc(t: str) -> str | None:
-        d = (
-            db.query(Document)
-            .filter_by(author_id=user_id, project_id=proj_id, type=t)
-            .one_or_none()
-        )
+        d = db.query(Document).filter_by(author_id=user_id, project_id=proj_id, type=t).one_or_none()
         return d.content_md if d else None
 
     if isinstance(file, Project):
-        proj = (
-            db.query(Project)
-            .filter(Project.owner_id == user_id, Project.id == file.id)
-            .one_or_none()
-        )
+        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.id).one_or_none()
         if not proj:
             raise _http_404(f"Project {file.id} not found or no permission.")
         proj_id = proj.id
         parts.append(f"PROJECT:\n{proj.content_md or ''}")
 
     elif isinstance(file, Document):
-        proj = (
-            db.query(Project)
-            .filter(Project.owner_id == user_id, Project.id == file.project_id)
-            .one_or_none()
-        )
+        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.project_id).one_or_none()
         if not proj:
             raise _http_404(f"Project {file.project_id} not found or no permission.")
         proj_id = proj.id
@@ -505,11 +463,7 @@ def insert_file_info_repo(
 
     # Task 파일 존재하는 경우
     elif isinstance(file, Task):
-        proj = (
-            db.query(Project)
-            .filter(Project.owner_id == user_id, Project.id == file.project_id)
-            .one_or_none()
-        )
+        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.project_id).one_or_none()
         if not proj:
             raise _http_404(f"Project {file.project_id} not found or no permission.")
         proj_id = proj.id
@@ -519,10 +473,7 @@ def insert_file_info_repo(
             if content:
                 parts.append(f"{t}:\n{content}\n")
         task = (
-            db.query(Task)
-            .filter(Task.assignee_id == user_id, Task.project_id == file.project_id)
-            .order_by(Task.id.asc())
-            .all()
+            db.query(Task).filter(Task.assignee_id == user_id, Task.project_id == file.project_id).order_by(Task.id.asc()).all()
         )
         for i, t in enumerate(task, start=1):
             content_md = t.description_md or ""
@@ -530,11 +481,7 @@ def insert_file_info_repo(
 
     # Task 파일 존재하지 않는 경우
     elif file_type == "TASK":
-        proj = (
-            db.query(Project)
-            .filter(Project.owner_id == user_id, Project.id == request.project_id)
-            .one_or_none()
-        )
+        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == request.project_id).one_or_none()
         if not proj:
             raise _http_404(f"Project {file.project_id} not found or no permission.")
         proj_id = proj.id
@@ -564,18 +511,12 @@ def create_chat_message_repo(chat_message: ChatMessage, db: Session) -> ChatMess
         raise HTTPException(status_code=500, detail=f"Failed to create chat message: {str(e)}")
 
 
-def check_file_exist_repo(
-    user_id: str, request: ChatSessionCreateRequest, db: Session
-) -> tuple[Any, str] | tuple[None, str]:
+def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> tuple[Any, str] | tuple[None, str]:
     # request body의 project id와 file_type 조합으로 유무 판별
     # type = project인 경우 project 수정임
     if request.file_type is FileType.project:
         try:
-            proj = (
-                db.query(Project)
-                .filter(Project.owner_id == user_id, Project.id == request.project_id)
-                .one()
-            )
+            proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == request.project_id).one()
             return proj, "PROJECT"
         except NoResultFound:
             return None, "PROJECT"
@@ -604,9 +545,7 @@ def check_file_exist_repo(
             raise _http_400(f"Unsupported file_type: {request.file_type}")
 
 
-def create_file_repo(
-    user_id: str, request: ChatSessionCreateRequest, db: Session
-) -> tuple[Any, str]:
+def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
         file = Project(
@@ -628,11 +567,7 @@ def create_file_repo(
             raise _http_400("문서 생성에는 유효한 project_id가 필요합니다.")
         doc_type = request.file_type.value.upper()
         # 소유 프로젝트인지 확인
-        proj = (
-            db.query(Project)
-            .filter(Project.owner_id == user_id, Project.id == request.project_id)
-            .one_or_none()
-        )
+        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == request.project_id).one_or_none()
         if proj is None:
             raise _http_404(f"Project(id={request.project_id}) not found or no permission.")
 
