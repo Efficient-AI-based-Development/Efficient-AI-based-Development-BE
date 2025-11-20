@@ -1,7 +1,6 @@
 import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy.orm import Session
@@ -38,7 +37,7 @@ def google_login():
         "prompt": "consent",
     }
     url = f"{base_url}?{urllib.parse.urlencode(params)}"
-    return RedirectResponse(url)
+    return {"url": url}
 
 
 refresh_scheme = HTTPBearer(auto_error=True)
