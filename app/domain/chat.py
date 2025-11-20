@@ -1,55 +1,271 @@
 import asyncio
 import json
+from contextlib import suppress
+from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
+from sse_starlette import EventSourceResponse
+from starlette.requests import Request
 
-from app.db.models import ChatMessage, ChatSession, Document, Project, Task
+from app.db.database import get_db
+from app.db.models import ChatMessage, ChatSession, Document, Project, Task, User
+from app.domain.auth import get_current_user
 from app.schemas.chat import (
+    ChatMessageRequest,
     ChatSessionCreateRequest,
     ChatSessionCreateResponse,
     FileType,
     StoreFileResponse,
 )
 
-SESSION_IN: dict[int, asyncio.Queue[str]] = {}
-SESSION_OUT: dict[int, asyncio.Queue[str]] = {}
-SESSION_TASK: dict[int, asyncio.Task] = {}
-SESSION_CANCEL: dict[int, asyncio.Event] = {}
+TIMEOUT = 300
 
+
+@dataclass
+class StateStation:
+    session_id: int
+    file_type: str | None = None
+
+    queue_in: asyncio.Queue[str] = field(default_factory=asyncio.Queue)
+    queue_out: asyncio.Queue[str] = field(default_factory=asyncio.Queue)
+    task: asyncio.Task | None = None
+    cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
+
+
+SESSIONS: dict[int, StateStation] = {}
 
 # 전역 상수
 END_SENTINEL = "[[END]]"
 CANCEL_SENTINEL = "[[CANCEL]]"
 
 
-# ---------------------- AI 작동 --------------------------------
-async def ensure_worker(user_id: str, session_id: int, db: Session):
-    # 이미 실행 중이면 재사용
-    task = SESSION_TASK.get(session_id)
+async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, current_user: User, db: Session):
+    resp = create_chat_session_with_message_service(current_user.user_id, request.content_md, request, db)
+
+    await ensure_worker(current_user.user_id, resp.chat_id, request.file_type.value.upper(), db)  # ① 워커 보장
+    attached_info = (
+        db.query(ChatMessage).filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system").one_or_none()
+    )
+    content = ""
+    if attached_info is None:
+        content = request.content_md
+    else:
+        content = attached_info.content + request.content_md
+
+    if request.file_type != FileType.project:
+        await SESSIONS[resp.chat_id].queue_in.put(content)
+
+    return resp
+
+
+async def cancel_session_service(
+    chat_session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    session = db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == current_user.user_id).first()
+
+    if session is None:
+        # 네 스타일 기준 -> 404 사용
+        raise HTTPException(404, "chat session not found or no permission")
+
+    station = SESSIONS.get(chat_session_id)
+
+    if station is None:
+        station = StateStation(session_id=chat_session_id, file_type=session.file_type)
+        SESSIONS[chat_session_id] = station
+
+    cancel_ev = station.cancel_event
+    # 이미 취소 상태면 재진입 방지
+    if cancel_ev.is_set():
+        return {"ok": True}
+    cancel_ev.set()
+
+    station = SESSIONS.get(chat_session_id)
+    if station is None:
+        station = StateStation(session_id=chat_session_id, file_type=session.file_type)
+        SESSIONS[chat_session_id] = station
+    # 워커 입력 쪽 취소 신호
+    in_q = station.queue_in
+    if in_q is not None:
+        while True:
+            try:
+                in_q.get_nowait()  # 버리기
+            except asyncio.QueueEmpty:
+                break
+        with suppress(asyncio.QueueFull):
+            in_q.put_nowait(CANCEL_SENTINEL)
+
+    station = SESSIONS.get(chat_session_id)
+    if station is None:
+        station = StateStation(session_id=chat_session_id, file_type=session.file_type)
+        SESSIONS[chat_session_id] = station
+    # 워커 입력 쪽 취소 신호
+    out_q = station.queue_out
+    if out_q is not None:
+        while True:
+            try:
+                out_q.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        with suppress(asyncio.QueueFull):
+            out_q.put_nowait(CANCEL_SENTINEL)
+
+    # 워커 태스크 취소
+    station = SESSIONS.get(chat_session_id)
+    if station is None:
+        station = StateStation(session_id=chat_session_id, file_type=session.file_type)
+        SESSIONS[chat_session_id] = station
+    task = station.task
     if task and not task.done():
+        task.cancel()
+        # cancel 전파 기다리되, CancelledError는 조용히 무시
+        with suppress(asyncio.CancelledError):
+            await task
+
+    station = SESSIONS.pop(chat_session_id, None)
+
+    if station:
+        # cancel 이벤 트리거
+        station.cancel_event.set()
+
+        # task가 살아있으면 cancel
+        if station.task and not station.task.done():
+            station.task.cancel()
+
+    return {"ok": True}
+
+
+async def send_message_service(
+    chat_session_id: int,
+    request: ChatMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sess = (
+        db.query(ChatSession).filter(ChatSession.user_id == current_user.user_id, ChatSession.id == chat_session_id).one_or_none()
+    )
+    if not sess:
+        raise HTTPException(404, "chat session not found")
+
+    if chat_session_id not in SESSIONS:
+        # 스트림이 열리기 전 메시지 -> 무시할지, 저장만 할지 선택
+        return {"ok": True, "ignored": True}
+
+    db.add(
+        ChatMessage(
+            session_id=chat_session_id,
+            role="user",
+            content=request.content_md,
+            user_id=current_user.user_id,
+        )
+    )
+    db.commit()
+
+    # worker 보장
+    await ensure_worker(current_user.user_id, chat_session_id, sess.file_type, db)
+
+    # 큐에 user 메시지 삽입
+    await SESSIONS[chat_session_id].queue_in.put(request.content_md)
+
+    return {"ok": True}
+
+
+async def stream_service(chat_session_id: int, request: Request, db: Session):
+    sess = db.query(ChatSession).filter(ChatSession.id == chat_session_id).one_or_none()
+    if not sess:
+        raise HTTPException(404, "chat session not found")
+
+    station = SESSIONS.setdefault(
+        chat_session_id,
+        StateStation(session_id=chat_session_id, file_type=sess.file_type),
+    )
+    out_q = station.queue_out
+    cancel_ev = station.cancel_event
+
+    async def event_gen():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    cancel_ev.set()
+                    station = SESSIONS.get(chat_session_id)
+                    in_q = station.queue_in
+                    if in_q is not None:
+                        while True:
+                            try:
+                                in_q.get_nowait()  # 버리기
+                            except asyncio.QueueEmpty:
+                                break
+                        with suppress(asyncio.QueueFull):
+                            in_q.put_nowait(CANCEL_SENTINEL)
+
+                    break
+
+                try:
+                    token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
+                except TimeoutError:
+                    yield {"event": "timeout", "data": "no tokens, stream closed"}
+                    cancel_ev.set()
+                    station = SESSIONS.get(chat_session_id)
+                    in_q = station.queue_in
+                    if in_q is not None:
+                        while True:
+                            try:
+                                in_q.get_nowait()  # 버리기
+                            except asyncio.QueueEmpty:
+                                break
+                        with suppress(asyncio.QueueFull):
+                            in_q.put_nowait(CANCEL_SENTINEL)
+
+                    break
+
+                if token == CANCEL_SENTINEL:
+                    yield {"event": "cancel", "data": ""}
+                    break
+
+                if token == END_SENTINEL:
+                    yield {"event": "turn_end", "data": ""}
+                    break
+
+                yield {"event": "assistant", "data": token}
+
+        finally:
+            pass
+
+    return EventSourceResponse(event_gen(), ping=15000)
+
+
+# ---------------------- AI 작동 --------------------------------
+async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Session):
+    # 1) 세션 스테이션 가져오기 또는 생성
+    station = SESSIONS.get(session_id)
+    if station is None:
+        station = StateStation(session_id=session_id, file_type=file_type)
+        SESSIONS[session_id] = station
+    else:
+        # 이미 있으면 file_type 업데이트만 (필요하면)
+        station.file_type = file_type or station.file_type
+
+    # 2) worker task 살아있으면 재사용
+    if station.task and not station.task.done():
         return
 
-    in_q = SESSION_IN.setdefault(session_id, asyncio.Queue())
-    out_q = SESSION_OUT.setdefault(session_id, asyncio.Queue())
-    cancel_ev = SESSION_CANCEL.setdefault(session_id, asyncio.Event())
+    # 3) 취소 이벤트 초기화
+    station.cancel_event.clear()
 
-    def build_prompt(session_id: int, new_message: str, db: Session):
+    def build_prompt(session_id: int, new_message: str, db: Session) -> str:
 
         history = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.id.asc()).all()
-
-        buf = []
+        buf: list[str] = []
         buf.append("=== SYSTEM CONTEXT ===\n")
 
-        system_content = history[0].content or ""
-        buf.append(f"system : {system_content}")
-        buf.append("\n")
+        system_content = history[0].content if history else ""
+        buf.append(f"system : {system_content}\n\n")
 
-        # HISTORY
         buf.append("=== CONVERSATION ===\n")
-
         for h in history[1:]:
             if h.role == "assistant":
                 buf.append(f"AI: {h.content}\n")
@@ -62,37 +278,47 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
         return "".join(buf)
 
     async def worker():
+        has_first = True
         try:
             while True:
                 # 외부에서 취소되었으면 종료
-                if cancel_ev.is_set():
+                if station.cancel_event.is_set():
                     break
 
-                user_message = await in_q.get()
+                # 새 유저 메시지 대기
+                user_message = await station.queue_in.get()
 
-                # 내부 프로토콜: [[CANCEL]] 메시지를 받으면 종료
-                if user_message == "[[CANCEL]]":
+                # 내부 프로토콜: [[CANCEL]] 이면 종료
+                if user_message == CANCEL_SENTINEL:
                     break
 
+                # 빈 문자열이면 바로 END 토큰만 쏘고 다음 루프
                 if not isinstance(user_message, str) or not user_message.strip():
-                    await out_q.put("[[END]]")
+                    await station.queue_out.put(END_SENTINEL)
                     continue
 
+                # 프롬프트 구성
                 prompt = build_prompt(session_id, user_message, db)
-                answer = prompt
-                # 여기서는 가짜 스트리밍
+
+                # TODO: 실제 LLM 호출로 교체
+                if has_first:
+                    answer = prompt  # 지금은 그냥 echo
+                    has_first = False
+                else:
+                    answer = prompt
+
                 assembled: list[str] = []
                 for token in answer:
-                    if cancel_ev.is_set():  # 스트림 도중 취소되면 즉시 중단
+                    if station.cancel_event.is_set():
                         break
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.05)  # 가짜 스트리밍 딜레이
                     assembled.append(token)
-                    await out_q.put(token)
+                    await station.queue_out.put(token)
 
-                await out_q.put("[[END]]")  # 턴 종료 이벤트
+                # 한 턴 끝났다고 알림
+                await station.queue_out.put(END_SENTINEL)
 
-                # 취소가 중간에 들어왔으면 저장 스킵
-                if cancel_ev.is_set():
+                if station.cancel_event.is_set():
                     break
 
                 # 어시스턴트 전체 응답 저장
@@ -108,13 +334,15 @@ async def ensure_worker(user_id: str, session_id: int, db: Session):
                 _safe_commit(db)
 
         except asyncio.CancelledError:
+            # task.cancel() 된 경우 조용히 종료
             pass
         finally:
-            # 정리
-            cancel_ev.clear()
-            SESSION_TASK.pop(session_id, None)
+            # 정리: task 비우고 cancel_event 초기화
+            station.cancel_event.clear()
+            station.task = None
 
-    SESSION_TASK[session_id] = asyncio.create_task(worker())
+    # 4) 실제 worker task 실행
+    station.task = asyncio.create_task(worker())
 
 
 # ---------------------- 공통 유틸 ----------------------

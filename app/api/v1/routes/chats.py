@@ -1,37 +1,26 @@
-import asyncio
-from contextlib import suppress
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
 from app.db.database import get_db
-from app.db.models import ChatMessage, ChatSession, User
+from app.db.models import User
 from app.domain.auth import get_current_user
 from app.domain.chat import (
-    CANCEL_SENTINEL,
-    END_SENTINEL,
-    SESSION_CANCEL,
-    SESSION_IN,
-    SESSION_OUT,
-    SESSION_TASK,
     apply_ai_last_message_to_content_service,
-    create_chat_session_with_message_service,
-    ensure_worker,
+    cancel_session_service,
+    send_message_service,
+    start_chat_with_init_file_service,
+    stream_service,
 )
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatSessionCreateRequest,
     ChatSessionCreateResponse,
-    FileType,
     StoreFileRequest,
     StoreFileResponse,
 )
 
 router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user)])
-
-TIMEOUT = 300
 
 
 # chat 시작 & init_project 생성
@@ -41,85 +30,13 @@ async def start_chat_with_init_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
-    resp = create_chat_session_with_message_service(current_user.user_id, request.content_md, request, db)
-
-    await ensure_worker(current_user.user_id, resp.chat_id, db)  # ① 워커 보장
-    attached_info = (
-        db.query(ChatMessage).filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system").one_or_none()
-    )
-    content = ""
-    if attached_info is None:
-        content = request.content_md
-    else:
-        content = attached_info.content + request.content_md
-
-    if request.file_type != FileType.project:
-        await SESSION_IN[resp.chat_id].put(content)
-
-    return resp
+    return await start_chat_with_init_file_service(request, current_user, db)
 
 
 # SSE 연결, AI 응답 보내기
 @router.get("/{chat_session_id}/stream")
 async def stream(chat_session_id: int, request: Request, db: Session = Depends(get_db)):
-    sess = db.query(ChatSession).filter(ChatSession.id == chat_session_id).one_or_none()
-    if not sess:
-        raise HTTPException(404, "chat session not found")
-
-    out_q = SESSION_OUT.setdefault(chat_session_id, asyncio.Queue())
-    cancel_ev = SESSION_CANCEL.setdefault(chat_session_id, asyncio.Event())
-
-    async def event_gen():
-        try:
-            while True:
-                if await request.is_disconnected():
-                    cancel_ev.set()
-                    in_q = SESSION_IN.get(chat_session_id)
-
-                    if in_q is not None:
-                        while True:
-                            try:
-                                in_q.get_nowait()  # 버리기
-                            except asyncio.QueueEmpty:
-                                break
-                        with suppress(asyncio.QueueFull):
-                            in_q.put_nowait(CANCEL_SENTINEL)
-
-                    break
-
-                try:
-                    token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
-                except TimeoutError:
-                    yield {"event": "timeout", "data": "no tokens, stream closed"}
-                    cancel_ev.set()
-                    in_q = SESSION_IN.get(chat_session_id)
-
-                    if in_q is not None:
-                        while True:
-                            try:
-                                in_q.get_nowait()  # 버리기
-                            except asyncio.QueueEmpty:
-                                break
-                        with suppress(asyncio.QueueFull):
-                            in_q.put_nowait(CANCEL_SENTINEL)
-
-                    break
-
-                if token == CANCEL_SENTINEL:
-                    yield {"event": "cancel", "data": ""}
-                    break
-
-                if token == END_SENTINEL:
-                    yield {"event": "turn_end", "data": ""}
-                    break
-
-                yield {"event": "assistant", "data": token}
-
-        finally:
-            pass
-
-    return EventSourceResponse(event_gen(), ping=15000)
+    return await stream_service(chat_session_id, request, db)
 
 
 @router.post("/{chat_session_id}/messages")
@@ -129,34 +46,7 @@ async def send_message(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
-    sess = (
-        db.query(ChatSession).filter(ChatSession.user_id == current_user.user_id, ChatSession.id == chat_session_id).one_or_none()
-    )
-    if not sess:
-        raise HTTPException(404, "chat session not found")
-
-    if chat_session_id not in SESSION_OUT:
-        # 스트림이 열리기 전 메시지 -> 무시할지, 저장만 할지 선택
-        return {"ok": True, "ignored": True}
-
-    db.add(
-        ChatMessage(
-            session_id=chat_session_id,
-            role="user",
-            content=request.content_md,
-            user_id=current_user.user_id,
-        )
-    )
-    db.commit()
-
-    # worker 보장
-    await ensure_worker(current_user.user_id, chat_session_id, db)
-
-    # 큐에 user 메시지 삽입
-    await SESSION_IN[chat_session_id].put(request.content_md)
-
-    return {"ok": True}
+    return await send_message_service(chat_session_id, request, current_user, db)
 
 
 @router.post("/{chat_session_id}/cancel", status_code=202)
@@ -165,53 +55,7 @@ async def cancel_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    session = db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == current_user.user_id).first()
-
-    if session is None:
-        # 네 스타일 기준 -> 404 사용
-        raise HTTPException(404, "chat session not found or no permission")
-
-    cancel_ev = SESSION_CANCEL.setdefault(chat_session_id, asyncio.Event())
-    # 이미 취소 상태면 재진입 방지
-    if cancel_ev.is_set():
-        return {"ok": True}
-    cancel_ev.set()
-
-    # 워커 입력 쪽 취소 신호
-    in_q = SESSION_IN.get(chat_session_id)
-    if in_q is not None:
-        while True:
-            try:
-                in_q.get_nowait()  # 버리기
-            except asyncio.QueueEmpty:
-                break
-        with suppress(asyncio.QueueFull):
-            in_q.put_nowait(CANCEL_SENTINEL)
-
-    out_q = SESSION_OUT.get(chat_session_id)
-    if out_q is not None:
-        while True:
-            try:
-                out_q.get_nowait()
-            except asyncio.QueueEmpty:
-                break
-        with suppress(asyncio.QueueFull):
-            out_q.put_nowait(CANCEL_SENTINEL)
-
-    # 워커 태스크 취소
-    task = SESSION_TASK.get(chat_session_id)
-    if task and not task.done():
-        task.cancel()
-        # cancel 전파 기다리되, CancelledError는 조용히 무시
-        with suppress(asyncio.CancelledError):
-            await task
-
-    SESSION_TASK.pop(chat_session_id, None)
-    SESSION_IN.pop(chat_session_id, None)
-    SESSION_OUT.pop(chat_session_id, None)
-    SESSION_CANCEL.pop(chat_session_id, None)
-
-    return {"ok": True}
+    return cancel_session_service(chat_session_id, current_user, db)
 
 
 @router.post("/{chat_session_id}/store", response_model=StoreFileResponse, status_code=200)
