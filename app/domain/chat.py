@@ -10,6 +10,15 @@ from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
+from app.api.v1.routes.ai import (
+    generate_prd_endpoint,
+    generate_srs_endpoint,
+    generate_tasklist_endpoint,
+    generate_userstory_endpoint,
+    prd_chat,
+    srs_chat,
+    userstory_chat,
+)
 from app.db.database import get_db
 from app.db.models import ChatMessage, ChatSession, Document, Project, Task, User
 from app.domain.auth import get_current_user
@@ -57,7 +66,7 @@ async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, c
 
     if request.file_type != FileType.project:
         await SESSIONS[resp.chat_id].queue_in.put(content)
-
+    print(content)
     return resp
 
 
@@ -164,7 +173,6 @@ async def send_message_service(
         )
     )
     db.commit()
-
     # worker 보장
     await ensure_worker(current_user.user_id, chat_session_id, sess.file_type, db)
 
@@ -179,10 +187,10 @@ async def stream_service(chat_session_id: int, request: Request, db: Session):
     if not sess:
         raise HTTPException(404, "chat session not found")
 
-    station = SESSIONS.setdefault(
-        chat_session_id,
-        StateStation(session_id=chat_session_id, file_type=sess.file_type),
-    )
+    station = SESSIONS.get(chat_session_id)
+    if not station:
+        station = StateStation(session_id=chat_session_id, file_type=sess.file_type)
+        SESSIONS[chat_session_id] = station
     out_q = station.queue_out
     cancel_ev = station.cancel_event
 
@@ -212,9 +220,9 @@ async def stream_service(chat_session_id: int, request: Request, db: Session):
                     station = SESSIONS.get(chat_session_id)
                     in_q = station.queue_in
                     if in_q is not None:
-                        while True:
+                        while not in_q.empty():
                             try:
-                                in_q.get_nowait()  # 버리기
+                                in_q.get_nowait()
                             except asyncio.QueueEmpty:
                                 break
                         with suppress(asyncio.QueueFull):
@@ -256,6 +264,12 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
     # 3) 취소 이벤트 초기화
     station.cancel_event.clear()
 
+    doc = None
+    task_content_md = None
+    has_first = True
+    msg = None
+    data = None
+
     def build_prompt(session_id: int, new_message: str, db: Session) -> str:
 
         history = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.id.asc()).all()
@@ -278,7 +292,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
         return "".join(buf)
 
     async def worker():
-        has_first = True
+        nonlocal doc, task_content_md, has_first, msg, data
         try:
             while True:
                 # 외부에서 취소되었으면 종료
@@ -299,21 +313,64 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
 
                 # 프롬프트 구성
                 prompt = build_prompt(session_id, user_message, db)
-
-                # TODO: 실제 LLM 호출로 교체
+                file_type_local = station.file_type
                 if has_first:
-                    answer = prompt  # 지금은 그냥 echo
+                    if file_type_local == "PRD":
+                        answer = generate_prd_endpoint(prompt)
+                        data = answer.model_dump()
+                        doc = data.get("prd_document")
+                        msg = data.get("message")
+                    elif file_type_local == "USER_STORY":
+                        answer = generate_userstory_endpoint(prompt)
+                        data = answer.model_dump()
+                        doc = data.get("user_story")
+                        msg = data.get("message")
+
+                    elif file_type_local == "SRS":
+                        answer = generate_srs_endpoint(prompt)
+                        data = answer.model_dump()
+                        doc = data.get("srs_document")
+                        msg = data.get("message")
+
+                    elif file_type_local == "TASK":
+                        answer = generate_tasklist_endpoint("필요한 상위 문서의 내용은 user의 prompt에 넣었습니다", prompt)
+                        data = answer.model_dump()
+                        doc = data.get("tasks")
+                        msg = data.get("message")
+
                     has_first = False
                 else:
-                    answer = prompt
+                    if file_type_local == "PRD":
+                        answer = prd_chat(doc, prompt)
+                        data = answer.model_dump()
+                        doc = data.get("prd_document")
+                        msg = data.get("message")
+                    elif file_type_local == "USER_STORY":
+                        answer = userstory_chat(doc, prompt)
+                        data = answer.model_dump()
+                        doc = data.get("user_story")
+                        msg = data.get("message")
 
-                assembled: list[str] = []
-                for token in answer:
-                    if station.cancel_event.is_set():
-                        break
-                    await asyncio.sleep(0.05)  # 가짜 스트리밍 딜레이
-                    assembled.append(token)
-                    await station.queue_out.put(token)
+                    elif file_type_local == "SRS":
+                        answer = srs_chat(doc, prompt)
+                        data = answer.model_dump()
+                        doc = data.get("srs_document")
+                        msg = data.get("message")
+
+                    elif file_type_local == "TASK":
+                        answer = generate_tasklist_endpoint(task_content_md, prompt)
+                        data = answer.model_dump()
+                        doc = data.get("tasks")
+                        msg = data.get("message")
+
+                await station.queue_out.put(
+                    json.dumps(
+                        {
+                            "type": "data",
+                            "text": data,
+                        }
+                    )
+                )
 
                 # 한 턴 끝났다고 알림
                 await station.queue_out.put(END_SENTINEL)
@@ -321,13 +378,11 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                 if station.cancel_event.is_set():
                     break
 
-                # 어시스턴트 전체 응답 저장
-                full_text = "".join(assembled)
                 db.add(
                     ChatMessage(
                         session_id=session_id,
                         role="assistant",
-                        content=full_text,
+                        content=msg,
                         user_id=user_id,
                     )
                 )

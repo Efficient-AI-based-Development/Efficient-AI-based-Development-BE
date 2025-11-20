@@ -21,7 +21,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 
 # PRD 생성 API 엔드포인트
-def generate_prd_endpoint(user_input: str):
+def generate_prd_endpoint(user_input: str) -> str:
     try:
         logger.info("[PRD] 요청 수신")
         logger.debug("[PRD] 입력 미리보기: %s", user_input[:120])
@@ -36,7 +36,7 @@ def generate_prd_endpoint(user_input: str):
 def prd_chat(
     prd_document: str,
     user_feedback: str,
-):
+) -> str:
     try:
         logger.info("[PRD-CHAT] 요청 수신")
         logger.debug(
@@ -57,7 +57,7 @@ def prd_chat(
         raise HTTPException(status_code=500, detail=f"PRD Chat 서버 오류: {e}")
 
 
-def generate_srs_endpoint(user_input: str):
+def generate_srs_endpoint(user_input: str) -> str:
     try:
         logger.info("[SRS] 요청 수신")
         logger.debug("[SRS] 입력 미리보기: %s", user_input[:120])
@@ -73,7 +73,7 @@ def generate_srs_endpoint(user_input: str):
 def srs_chat(
     srs_document: str,
     user_feedback: str,
-):
+) -> str:
     try:
         logger.info("[SRS-CHAT] 요청 수신")
         logger.debug(
@@ -94,7 +94,7 @@ def srs_chat(
         raise HTTPException(status_code=500, detail=f"SRS Chat 서버 오류: {e}")
 
 
-def generate_userstory_endpoint(user_input: str):
+def generate_userstory_endpoint(user_input: str) -> str:
     try:
         logger.info("[USERSTORY] 요청 수신")
         logger.debug("[USERSTORY] 입력 미리보기: %s", user_input[:120])
@@ -113,7 +113,7 @@ def generate_userstory_endpoint(user_input: str):
 def userstory_chat(
     user_story: str,
     user_feedback: str,
-):
+) -> str:
     try:
         logger.info("[USERSTORY-CHAT] 요청 수신")
         logger.debug(
@@ -135,7 +135,7 @@ def userstory_chat(
 
 
 # Task List 생성 API 엔드포인트
-def generate_tasklist_endpoint(prd_document: str | None = None, user_input: str | None = None):
+def generate_tasklist_endpoint(prd_document: str | None = None, user_input: str | None = None) -> str:
     try:
         logger.info("[TaskList] 요청 수신")
         logger.debug("[TaskList] 입력 미리보기: %s", user_input[:120])
