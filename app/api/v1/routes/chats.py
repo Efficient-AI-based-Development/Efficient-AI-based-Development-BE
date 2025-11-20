@@ -55,7 +55,8 @@ async def cancel_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return cancel_session_service(chat_session_id, current_user, db)
+    result = await cancel_session_service(chat_session_id, current_user, db)
+    return result
 
 
 @router.post("/{chat_session_id}/store", response_model=StoreFileResponse, status_code=200)

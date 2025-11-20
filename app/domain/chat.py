@@ -372,9 +372,6 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                     )
                 )
 
-                # 한 턴 끝났다고 알림
-                await station.queue_out.put(END_SENTINEL)
-
                 if station.cancel_event.is_set():
                     break
 
