@@ -383,6 +383,22 @@ def create_and_check_file_id(
     if request.project_id == -1:
         if request.file_type is FileType.project:
             file, file_type = create_file_repo(user_id, request, db)
+
+            # PRD 생성
+            request.project_id = file.id
+            request.file_type = FileType.prd
+            file1, file_type1 = create_file_repo(user_id, request, db)
+
+            # USER_STORY 생성
+            request.file_type = FileType.userstory
+            file2, file_type2 = create_file_repo(user_id, request, db)
+
+            # SRS 생성
+            request.file_type = FileType.srs
+            file3, file_type3 = create_file_repo(user_id, request, db)
+
+            request.file_type = FileType.project
+
         else:
             raise _http_400(
                 "project_id = -1 은 PROJECT 생성에만 사용할 수 있습니다. "
@@ -593,7 +609,12 @@ def create_file_repo(
 ) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
-        file = Project(title="New Project", owner_id=user_id, status="in_progress")
+        file = Project(
+            title="New Project",
+            owner_id=user_id,
+            content_md=request.content_md,
+            status="in_progress",
+        )
         try:
             db.add(file)
             _flush_and_refresh(db, file)
@@ -630,7 +651,6 @@ def create_file_repo(
             raise HTTPException(status_code=500, detail=f"Failed to create document: {str(e)}")
 
     elif request.file_type is FileType.task:
-        # 자동생성 정책이 명확하지 않아 차단
         raise _http_400("Task auto-creation is not supported here. Use Task API.")
 
     else:

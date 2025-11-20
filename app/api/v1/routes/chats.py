@@ -24,6 +24,7 @@ from app.schemas.chat import (
     ChatMessageRequest,
     ChatSessionCreateRequest,
     ChatSessionCreateResponse,
+    FileType,
     StoreFileRequest,
     StoreFileResponse,
 )
@@ -46,7 +47,19 @@ async def start_chat_with_init_file(
     )
 
     await ensure_worker(current_user.user_id, resp.chat_id, db)  # ① 워커 보장
-    await SESSION_IN[resp.chat_id].put(request.content_md)
+    attached_info = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system")
+        .one_or_none()
+    )
+    content = ""
+    if attached_info is None:
+        content = request.content_md
+    else:
+        content = attached_info.content + request.content_md
+
+    if request.file_type != FileType.project:
+        await SESSION_IN[resp.chat_id].put(content)
 
     return resp
 
