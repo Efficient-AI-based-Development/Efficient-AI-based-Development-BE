@@ -43,6 +43,7 @@ class ProjectUpdateRequest(BaseModel):
 # 단일 응답 DTO (공통 응답)
 class ProjectRead(ProjectBase):
     owner_id: str
+    project_idx: str | None
     created_at: datetime
     updated_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
