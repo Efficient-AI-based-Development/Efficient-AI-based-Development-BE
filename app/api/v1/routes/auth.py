@@ -1,3 +1,4 @@
+import os
 import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -27,18 +28,18 @@ def google_login():
     base_url = "https://accounts.google.com/o/oauth2/v2/auth"
 
     # 환경에 따라 자동으로 설정
-    # environment = os.getenv("ENVIRONMENT", "development")  # "development" 또는 "production"
+    environment = os.getenv("ENVIRONMENT", "development")  # "development" 또는 "production"
 
-    # if environment == "production":
-    #     frontend_url = "https://atrina.vercel.app/document/setting1"
-    # else:
-    #     frontend_url = "http://localhost:5173/document/setting1"  # 개발 환경
+    if environment == "production":
+        frontend_url = "https://atrina.vercel.app/document/setting1"
+    else:
+        frontend_url = "http://localhost:5173/document/setting1"  # 개발 환경
 
     google_client_id = settings.google_client_id
-    google_redirect_uri = settings.google_redirect_uri
+    # google_redirect_uri = settings.google_redirect_uri
     params = {
         "client_id": google_client_id,
-        "redirect_uri": google_redirect_uri,
+        "redirect_uri": frontend_url,
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
