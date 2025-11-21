@@ -529,27 +529,17 @@ def store_document_content(
         return doc
 
     elif file_type == "TASK":
-        tasks = db.query(Task).filter(Task.id == file_id).one_or_none()
-        if tasks is None:  # 미생성인 Doc인 경우
-            for task in content_md:
-                data = Task(
-                    project_id=project_id,
-                    title=task["title"],
-                    description_md=task["description"],
-                )
-                db.add(data)
-
-        else:  # 이미 생성된 Doc인 경우, TASK 모두 지우고 새로 생성
-            db.query(Task).filter(Task.project_id == project_id).delete()
-
-            for task in content_md:
-                data = Task(
-                    project_id=project_id,
-                    title=task["title"],
-                    description=task["description"],
-                    description_md=task["description"],
-                )
-                db.add(data)
+        # tasks = db.query(Task).filter(Task.id == file_id).one_or_none()
+        for task in content_md:
+            data = Task(
+                project_id=project_id,
+                title=task["title"],
+                tags=task["tag"],
+                priority=task["priority"],
+                description=task["description"],
+                description_md=task["description"],
+            )
+            db.add(data)
 
         return None
 
@@ -581,10 +571,43 @@ def create_chat_session_with_message_service(
 
     # file(수정) 자신을 포함한 상위 file content를 chat message에 미리 등록,
     # cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
-    attached_info_to_chat(user_id, chat_session.id, request, file, file_type, db)
+    result = attached_info_to_chat(user_id, chat_session.id, request, file, file_type, db)
 
     # 사용자 입력 메시지 저장
-    db.add(ChatMessage(session_id=chat_session.id, role="user", content=user_message, user_id=user_id))
+    content = ""
+    # 기존 task존재, task 추가하는 경우
+    if result == 0:
+        content = user_message
+
+    else:
+        content = (
+            "description을 작성할때 Markdown형식으로 구체적으로 작성해야합니다.\n"
+            "======== 예시 ========="
+            "## 요구사항\n"
+            "- 키워드 검색 및 카테고리, 가격, 상태, 위치 필터 적용\n"
+            "- 입력 시 디바운스 검색 기능\n"
+            "- 검색 결과 페이징 처리\n"
+            "## 구현 세부사항\n"
+            "- REST API(`GET /api/items?search=...&category=...`) 호출로 서버 측 필터링\n"
+            "- lodash.debounce로 디바운스 처리\n"
+            "- 결과 정렬 및 페이징은 React Query 또는 SWR로 구현\n"
+            "## 테스트 전략\n"
+            "- 검색어 및 필터 조합별로 API 호출 파라미터 검증 단위 테스트\n"
+            "- 통합 테스트로 다양한 필터 조합 결과 확인\n"
+            "========== 예시 종료 ===========\n\n"
+        )
+        if result == 1:
+            content = (
+                user_message
+                + content
+                + (
+                    "PRD, USER_STORY, SRS, TASK 문서를 토대로 user_input에 따라 추가적인 TASK를 생성하려고 합니다."
+                    "이때 기존의 TASK는 출력하지 않고 추가로 작성된 TASK만 출력해주세요."
+                    "출력되는 TASK들의 제목도 작성해야합니다"
+                )
+            )
+
+    db.add(ChatMessage(session_id=chat_session.id, role="user", content=content, user_id=user_id))
     db.commit()
 
     # 파일 프로젝트 새로 생성하는 경우 때문에 작성
@@ -614,10 +637,11 @@ def attached_info_to_chat(
     file: Any,
     file_type: str,
     db: Session,
-) -> None:
+) -> int:
     # 문서 내용 작성
-    insert_file_info_repo(user_id, chat_session_id, request, file, file_type, db)
+    result = insert_file_info_repo(user_id, chat_session_id, request, file, file_type, db)
     db.commit()
+    return result
 
 
 def create_chat_message(user_id: str, chat_session_id: int, role: str, content: str, db: Session) -> ChatMessage:
@@ -773,6 +797,14 @@ def insert_file_info_repo(
                 content=content,
             )
         )
+    # TASK 파일 추가를 원하는 경우, user_input에 요구사항 추가를 위해 구분
+    if isinstance(file, Task):
+        return 1
+    # 새로 생성하는 TASK인 경우
+    elif file_type == "TASK":
+        return 2
+    else:
+        return 0
 
 
 def create_chat_message_repo(chat_message: ChatMessage, db: Session) -> ChatMessage:

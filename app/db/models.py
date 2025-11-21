@@ -362,9 +362,8 @@ class Task(Base):
         nullable=False,
         comment="프로젝트 외래키",
     )
-    title: Mapped[str] = mapped_column(
+    title: Mapped[str | None] = mapped_column(
         String(500),
-        nullable=False,
         comment="태스크 제목",
     )
     description: Mapped[str | None] = mapped_column(
