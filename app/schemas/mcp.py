@@ -30,9 +30,7 @@ class MCPConnectionCreate(BaseModel):
     )
     env: dict[str, Any] | None = Field(
         default=None,
-        description=(
-            "연결 시 필요한 환경 변수(JSON). " "API 키 등 민감정보는 서버/시크릿에서 관리 권장"
-        ),
+        description=("연결 시 필요한 환경 변수(JSON). " "API 키 등 민감정보는 서버/시크릿에서 관리 권장"),
         examples=[{"OPENAI_API_KEY": "sk-***"}],
     )
 
@@ -437,9 +435,7 @@ class MCPGuidePlatform(BaseModel):
 
 
 class MCPGuideResponse(BaseModel):
-    provider_id: str = Field(
-        ..., alias="providerId", description="MCP 제공자 ID", examples=["chatgpt"]
-    )
+    provider_id: str = Field(..., alias="providerId", description="MCP 제공자 ID", examples=["chatgpt"])
     provider_name: str = Field(
         ...,
         alias="providerName",

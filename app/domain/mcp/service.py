@@ -377,18 +377,14 @@ class MCPService:
                             description="프로젝트 루트에서 fastmcp 프로젝트 설정을 생성합니다.",
                             commands=[
                                 MCPGuideCommand(text="cd /path/to/project"),
-                                MCPGuideCommand(
-                                    text="fastmcp init --provider chatgpt --project <PROJECT_ID>"
-                                ),
+                                MCPGuideCommand(text="fastmcp init --provider chatgpt --project <PROJECT_ID>"),
                             ],
                         ),
                         MCPGuideStep(
                             title="3. 에이전트에서 실행",
                             description="에이전트 터미널(예: Cursor 커맨드 팔레트)에서 아래 명령을 실행하면 작업을 진행할 수 있습니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(
-                                    text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'
-                                ),
+                                MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
                                 MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
@@ -411,18 +407,14 @@ class MCPService:
                             description="PowerShell에서 프로젝트 디렉토리로 이동 후 초기화합니다.",
                             commands=[
                                 MCPGuideCommand(text="cd C:\\path\\to\\project"),
-                                MCPGuideCommand(
-                                    text="fastmcp init --provider chatgpt --project <PROJECT_ID>"
-                                ),
+                                MCPGuideCommand(text="fastmcp init --provider chatgpt --project <PROJECT_ID>"),
                             ],
                         ),
                         MCPGuideStep(
                             title="3. 명령 실행하기",
                             description="에이전트에서 아래 명령을 실행하거나 버튼을 눌러 작업을 시작합니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(
-                                    text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'
-                                ),
+                                MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
                                 MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
@@ -448,9 +440,7 @@ class MCPService:
                             description="fastmcp CLI를 통해 Anthropic 키로 로그인합니다.",
                             commands=[
                                 MCPGuideCommand(text="npm i -g fastmcp-cli"),
-                                MCPGuideCommand(
-                                    text="fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>"
-                                ),
+                                MCPGuideCommand(text="fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>"),
                             ],
                         ),
                         MCPGuideStep(
@@ -458,18 +448,14 @@ class MCPService:
                             description="프로젝트 루트에서 Claude MCP 구성을 생성합니다.",
                             commands=[
                                 MCPGuideCommand(text="cd /path/to/project"),
-                                MCPGuideCommand(
-                                    text="fastmcp init --provider claude --project <PROJECT_ID>"
-                                ),
+                                MCPGuideCommand(text="fastmcp init --provider claude --project <PROJECT_ID>"),
                             ],
                         ),
                         MCPGuideStep(
                             title="3. 에이전트 실행",
                             description="Claude Code에서 MCP 프로젝트를 실행하면 연결됩니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(
-                                    text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'
-                                ),
+                                MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
                                 MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
@@ -492,18 +478,14 @@ class MCPService:
                             description="프로젝트 디렉토리에서 초기화합니다.",
                             commands=[
                                 MCPGuideCommand(text="cd C:\\path\\to\\project"),
-                                MCPGuideCommand(
-                                    text="fastmcp init --provider claude --project <PROJECT_ID>"
-                                ),
+                                MCPGuideCommand(text="fastmcp init --provider claude --project <PROJECT_ID>"),
                             ],
                         ),
                         MCPGuideStep(
                             title="작업 실행",
                             description="명령어를 실행하거나 Claude Code에서 MCP 실행 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(
-                                    text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'
-                                ),
+                                MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
                                 MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
@@ -536,18 +518,14 @@ class MCPService:
                             description="Cursor와 연동할 프로젝트를 등록합니다.",
                             commands=[
                                 MCPGuideCommand(text="cd /path/to/project"),
-                                MCPGuideCommand(
-                                    text="fastmcp init --provider cursor --project <PROJECT_ID>"
-                                ),
+                                MCPGuideCommand(text="fastmcp init --provider cursor --project <PROJECT_ID>"),
                             ],
                         ),
                         MCPGuideStep(
                             title="3. Cursor에서 실행",
                             description="`Cmd+Shift+P` → `Open MCP Project` 후 아래 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(
-                                    text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'
-                                ),
+                                MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
                                 MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
@@ -570,18 +548,14 @@ class MCPService:
                             description="프로젝트 디렉토리로 이동 후 MCP 구성을 생성합니다.",
                             commands=[
                                 MCPGuideCommand(text="cd C:\\path\\to\\project"),
-                                MCPGuideCommand(
-                                    text="fastmcp init --provider cursor --project <PROJECT_ID>"
-                                ),
+                                MCPGuideCommand(text="fastmcp init --provider cursor --project <PROJECT_ID>"),
                             ],
                         ),
                         MCPGuideStep(
                             title="Cursor에서 연결 확인",
                             description="Cursor Command Palette에서 MCP 프로젝트를 선택하면 연결됩니다. 자연어 명령어도 지원합니다.",
                             commands=[
-                                MCPGuideCommand(
-                                    text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'
-                                ),
+                                MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
                                 MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
@@ -609,19 +583,13 @@ class MCPService:
         return project
 
     def _get_connection(self, connection_id: int) -> models.MCPConnection:
-        connection = (
-            self.db.query(models.MCPConnection)
-            .filter(models.MCPConnection.id == connection_id)
-            .first()
-        )
+        connection = self.db.query(models.MCPConnection).filter(models.MCPConnection.id == connection_id).first()
         if not connection:
             raise NotFoundError("MCPConnection", str(connection_id))
         return connection
 
     def _get_session(self, session_id: int) -> models.MCPSession:
-        session = (
-            self.db.query(models.MCPSession).filter(models.MCPSession.id == session_id).first()
-        )
+        session = self.db.query(models.MCPSession).filter(models.MCPSession.id == session_id).first()
         if not session:
             raise NotFoundError("MCPSession", str(session_id))
         return session
@@ -717,9 +685,7 @@ class MCPService:
 
         if provider_type == "chatgpt":
             if not settings.fastmcp_base_url or not settings.fastmcp_token:
-                raise ValidationError(
-                    "ChatGPT 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요."
-                )
+                raise ValidationError("ChatGPT 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요.")
             provider = ChatGPTProvider(
                 base_url=settings.fastmcp_base_url,
                 token=settings.fastmcp_token,
@@ -732,9 +698,7 @@ class MCPService:
             run.message = "ChatGPT 응답이 fastMCP를 통해 생성되었습니다."
         elif provider_type == "claude":
             if not settings.fastmcp_base_url or not settings.fastmcp_token:
-                raise ValidationError(
-                    "Claude 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요."
-                )
+                raise ValidationError("Claude 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요.")
             provider = ClaudeProvider(
                 base_url=settings.fastmcp_base_url,
                 token=settings.fastmcp_token,
@@ -747,9 +711,7 @@ class MCPService:
             run.message = "Claude 응답이 fastMCP를 통해 생성되었습니다."
         elif provider_type == "cursor":
             if not settings.fastmcp_base_url or not settings.fastmcp_token:
-                raise ValidationError(
-                    "Cursor 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요."
-                )
+                raise ValidationError("Cursor 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요.")
             # Cursor는 OpenAI 기반이므로 기본 모델 사용
             provider = CursorProvider(
                 base_url=settings.fastmcp_base_url,

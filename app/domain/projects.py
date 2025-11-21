@@ -27,9 +27,7 @@ def get_project_service(project_id: int, user_id: str, db: Session) -> ProjectRe
     except NoResultFound:
         raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except SQLAlchemyError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def create_project_service(request: ProjectCreateRequest, user_id: str, db: Session) -> ProjectRead:
@@ -46,9 +44,7 @@ def create_project_service(request: ProjectCreateRequest, user_id: str, db: Sess
         db.rollback()
         print("DB Error:", e)
         traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def get_project_list_service(params: PaginationParams, user_id: str, db: Session) -> ProjectPage:
@@ -57,9 +53,7 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
         per_page = min(max(10, params.page_size), 50)
         page = max(1, params.page or 1)
 
-        projects_orm, total = get_project_list_repo(
-            q=q, page=page, per_page=per_page, user_id=user_id, db=db
-        )
+        projects_orm, total = get_project_list_repo(q=q, page=page, per_page=per_page, user_id=user_id, db=db)
         total_pages = max(1, int((total + per_page - 1) / per_page))
 
         if page > total_pages:
@@ -77,9 +71,7 @@ def get_project_list_service(params: PaginationParams, user_id: str, db: Session
 
         return ProjectPage(projects=projects, meta=meta)
     except SQLAlchemyError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def to_project_read(project) -> ProjectRead:
@@ -93,9 +85,7 @@ def to_project_read(project) -> ProjectRead:
     return ProjectRead(**project.__dict__, content_md_json=json_content)
 
 
-def update_project_service(
-    project_id: int, user_id: str, request: ProjectUpdateRequest, db: Session
-) -> ProjectRead:
+def update_project_service(project_id: int, user_id: str, request: ProjectUpdateRequest, db: Session) -> ProjectRead:
     try:
         project = update_project_repo(project_id, user_id, request, db)
         db.commit()
@@ -106,9 +96,7 @@ def update_project_service(
         raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
     except SQLAlchemyError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def delete_project_service(project_id: int, user_id: str, db: Session) -> ProjectDeleteResponse:
@@ -128,9 +116,7 @@ def delete_project_service(project_id: int, user_id: str, db: Session) -> Projec
 
     except SQLAlchemyError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def get_pagination_params(
@@ -141,10 +127,7 @@ def get_pagination_params(
     if page > page_size:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다."
-                f"(page={page}, page_size={page_size})"
-            ),
+            detail=(f"페이지 번호(page)는 페이지 크기(pageSize)보다 클 수 없습니다." f"(page={page}, page_size={page_size})"),
         )
     return PaginationParams(q=q, page_size=page_size, page=page)
 
@@ -168,9 +151,7 @@ def create_new_project_repo(request: ProjectCreateRequest, user_id: str, db: Ses
     return project
 
 
-def get_project_list_repo(
-    q: str | None, page: int, per_page: int, user_id: str, db: Session
-) -> tuple[list[Project], int]:
+def get_project_list_repo(q: str | None, page: int, per_page: int, user_id: str, db: Session) -> tuple[list[Project], int]:
     query = db.query(Project).filter(Project.owner_id == user_id)
     if q:
         query = query.filter(Project.title.ilike(f"%{q}%"))
@@ -182,9 +163,7 @@ def get_project_list_repo(
     return items, total
 
 
-def update_project_repo(
-    project_id: int, user_id: str, request: ProjectUpdateRequest, db: Session
-) -> Project:
+def update_project_repo(project_id: int, user_id: str, request: ProjectUpdateRequest, db: Session) -> Project:
 
     project = db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one()
 

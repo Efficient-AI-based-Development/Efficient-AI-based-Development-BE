@@ -66,9 +66,7 @@ class User(Base):
 class SocialAccount(Base):
     __tablename__ = "socialaccounts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(
-        String(120), ForeignKey("users.user_id", ondelete="CASCADE")
-    )
+    user_id: Mapped[str] = mapped_column(String(120), ForeignKey("users.user_id", ondelete="CASCADE"))
     provider: Mapped[str] = mapped_column(String(120), nullable=False)
     provider_user_id: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
@@ -78,9 +76,7 @@ class SocialAccount(Base):
     )
     user: Mapped["User"] = relationship(back_populates="social_accounts")
 
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_user_id", name="uq_social_provider_user"),
-    )
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_social_provider_user"),)
 
 
 class Project(Base):
@@ -110,9 +106,7 @@ class Project(Base):
     project_idx: Mapped[str] = mapped_column(nullable=False, comment="user별 프로젝트 idx")
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="프로젝트 제목")
     content_md: Mapped[str] = mapped_column(comment="프로젝트 내용")
-    status: Mapped[str] = mapped_column(
-        String(30), nullable=False, server_default=text("todo"), comment="프로젝트 상태"
-    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("todo"), comment="프로젝트 상태")
 
     owner_id: Mapped[str] = mapped_column(String(120), comment="프로젝트 소유자")
     created_at: Mapped[datetime] = mapped_column(
@@ -261,9 +255,7 @@ class Document(Base):
         onupdate=func.now(),  # UPDATE 시 자동 갱신
         comment="수정 시각",
     )
-    status: Mapped[str] = mapped_column(
-        String(30), nullable=False, server_default=text("todo"), comment="문서 상태"
-    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("todo"), comment="문서 상태")
 
     # 테이블 제약 조건 및 인덱스
     __table_args__ = (
@@ -284,13 +276,9 @@ class Document(Base):
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True, comment="채팅 세션 고유 ID"
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="채팅 세션 고유 ID")
 
-    file_type: Mapped[str] = mapped_column(
-        String(20), nullable=False, comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)"
-    )
+    file_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="파일 타입 (PROJECT, PRD, USER_STORY, SRS, TASK)")
 
     file_id: Mapped[int] = mapped_column(Integer, nullable=False, comment="연결된 파일 ID")
 
@@ -315,17 +303,13 @@ class ChatMessage(Base):
         comment="연결된 채팅 세션 ID",
     )
 
-    role: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="메시지 주체 (user, assistant, system, tool)"
-    )
+    role: Mapped[str] = mapped_column(String(50), nullable=False, comment="메시지 주체 (user, assistant, system, tool)")
 
     user_id: Mapped[str] = mapped_column(String(120), nullable=True, comment="사용자 ID")
 
     content: Mapped[str | None] = mapped_column(Text, nullable=True, comment="메시지 내용 (텍스트)")
 
-    tool_calls_json: Mapped[str | None] = mapped_column(
-        Text, nullable=True, comment="AI tool 호출 정보(JSON 문자열)"
-    )
+    tool_calls_json: Mapped[str | None] = mapped_column(Text, nullable=True, comment="AI tool 호출 정보(JSON 문자열)")
 
     created_at = mapped_column(
         TIMESTAMP(timezone=True),
@@ -644,9 +628,7 @@ class GenJob(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "job_type IN ("
-            "'code_generation', 'document_generation', 'test_generation', 'refactoring'"
-            ")",
+            "job_type IN (" "'code_generation', 'document_generation', 'test_generation', 'refactoring'" ")",
             name="chk_gen_job_type",
         ),
         CheckConstraint(
@@ -904,9 +886,7 @@ class MCPRun(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ("
-            "'pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'cancelled'"
-            ")",
+            "status IN (" "'pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'cancelled'" ")",
             name="chk_mcp_run_status",
         ),
     )

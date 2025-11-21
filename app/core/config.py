@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
+        env_file_encoding="utf-8",
         extra="ignore",
     )
 
@@ -45,6 +46,14 @@ class Settings(BaseSettings):
     BACKEND_BASE_URL: str | None = None
     SECRET_KEY: str | None = None
     ALGORITHM: str | None = None
+
+    UPSTAGE_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
+
+    LLM_MODEL_SOLAR: str = "solar-pro2"
+    LLM_MODEL_WRITER: str = "solar-pro2"
+    LLM_MODEL_AUDITOR: str = "solar-pro2"
+    LLM_MODEL_DECOMPOSER: str = "solar-pro2"
 
     @property
     def get_database_url(self) -> str:
