@@ -11,6 +11,7 @@ from app.domain.chat import (
     send_message_service,
     start_chat_with_init_file_service,
     stream_service,
+    update_doc_file_service,
 )
 from app.schemas.chat import (
     ChatMessageRequest,
@@ -18,6 +19,8 @@ from app.schemas.chat import (
     ChatSessionCreateResponse,
     StoreFileRequest,
     StoreFileResponse,
+    UpdateFileRequest,
+    UpdateFileResponse,
 )
 
 router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user)])
@@ -67,3 +70,13 @@ def store_file(
     db: Session = Depends(get_db),
 ):
     return apply_ai_last_message_to_content_service(current_user.user_id, chat_session_id, request.project_id, db)
+
+
+@router.put("/update", response_model=UpdateFileResponse, status_code=200)
+def update_all_doc_file_by_tasks(
+    request: UpdateFileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    update_doc_file_service(current_user.user_id, request.project_id, db)
+    return UpdateFileResponse(ok=True, project_id=request.project_id)

@@ -40,3 +40,12 @@ class StoreFileResponse(BaseModel):
     file_type: str
     file_id: int
     updated_at: datetime | None = None
+
+
+class UpdateFileRequest(BaseModel):
+    project_id: int
+
+
+class UpdateFileResponse(BaseModel):
+    ok: bool = True
+    project_id: int

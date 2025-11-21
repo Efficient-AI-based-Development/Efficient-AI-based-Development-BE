@@ -474,6 +474,7 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
 
     if updated_obj is None:  # Task 같은 경우에는 새로 생성되기 때문에 X
         updated_at = None
+
     else:
         try:
             db.refresh(updated_obj)
@@ -487,6 +488,44 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
         file_id=cur_chat_session.file_id,
         updated_at=updated_at,
     )
+
+
+def update_doc_file_service(user_id: str, project_id: int, db: Session):
+    proj = db.query(Project).filter(Project.id == project_id, Project.owner_id == user_id).one_or_none()
+    if proj is None:
+        raise HTTPException(404, "Project not found")
+
+    doc_names = {
+        "PRD": "Product Requirements Document",
+        "USER_STORY": "User Story Document",
+        "SRS": "Software Requirement Specification Document",
+    }
+
+    for doc_type in ["SRS", "USER_STORY", "PRD"]:
+
+        prompt = (
+            "전체 TASK 목록이 갱신되었습니다.\n"
+            f"현재 생성해야 하는 문서는 **{doc_names[doc_type]} ({doc_type})** 입니다.\n"
+            "기존 및 변경된 TASK 내용을 모두 반영하여 최신 버전으로 다시 작성하세요."
+        )
+        doc = ""
+        attached_info = insert_file_info(user_id, project_id, db)
+        if doc_type == "PRD":
+            doc = prd_chat(attached_info, prompt).model_dump()["prd_document"]
+        elif doc_type == "USER_STORY":
+            doc = userstory_chat(attached_info, prompt).model_dump()["user_story"]
+        elif doc_type == "SRS":
+            doc = srs_chat(attached_info, prompt).model_dump()["srs_document"]
+
+        data = (
+            db.query(Document)
+            .filter(Document.author_id == user_id, Document.project_id == project_id, Document.type == doc_type)
+            .one_or_none()
+        )
+        if data:
+            data.content_md = doc or data.content_md
+        db.commit()
+        db.refresh(data)
 
 
 def store_document_content(
@@ -529,7 +568,7 @@ def store_document_content(
         return doc
 
     elif file_type == "TASK":
-        # tasks = db.query(Task).filter(Task.id == file_id).one_or_none()
+        tasks = db.query(Task).filter(Task.project_id == project_id).first()
         for task in content_md:
             data = Task(
                 project_id=project_id,
@@ -540,8 +579,13 @@ def store_document_content(
                 description_md=task["description"],
             )
             db.add(data)
+        # task 생성
+        if tasks is None:
+            return None
 
-        return None
+        # task 추가 생성
+        else:
+            return 1
 
     else:
         raise _http_400(f"Unsupported file_type: {file_type}")
@@ -725,6 +769,30 @@ def create_chat_session(user_id: str, file: Any, file_type: str, db: Session) ->
 
 
 ######################################### REPO #############################################
+def insert_file_info(user_id: str, project_id: int, db: Session) -> str:
+    parts = []
+
+    def _get_doc(t: str) -> str | None:
+        d = db.query(Document).filter_by(author_id=user_id, project_id=proj_id, type=t).one_or_none()
+        return d.content_md if d else None
+
+    proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one_or_none()
+    if not proj:
+        raise _http_404(f"Project {project_id} not found or no permission.")
+    proj_id = proj.id
+    parts.append(f"PROJECT:\n{proj.content_md or ''}")
+    for t in ["PRD", "USER_STORY", "SRS"]:
+        content = _get_doc(t)
+        if content:
+            parts.append(f"{t}:\n{content}\n")
+    task = db.query(Task).filter(Task.project_id == project_id).order_by(Task.id.asc()).all()
+    if task:
+        for i, t in enumerate(task, start=1):
+            content_md = t.description_md or ""
+            parts.append(f"TASK {i}번:\n{content_md}\n")
+
+    content = "\n\n---\n".join([p for p in parts if p])
+    return content
 
 
 def insert_file_info_repo(
@@ -748,19 +816,7 @@ def insert_file_info_repo(
         proj_id = proj.id
         parts.append(f"PROJECT:\n{proj.content_md or ''}")
 
-    elif isinstance(file, Document):
-        proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.project_id).one_or_none()
-        if not proj:
-            raise _http_404(f"Project {file.project_id} not found or no permission.")
-        proj_id = proj.id
-        parts.append(f"PROJECT:\n{proj.content_md or ''}")
-        for t in ["PRD", "USER_STORY", "SRS"]:
-            content = _get_doc(t)
-            if content:
-                parts.append(f"{t}:\n{content}\n")
-
-    # Task 파일 존재하는 경우
-    elif isinstance(file, Task):
+    elif isinstance(file, (Document | Task)):
         proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file.project_id).one_or_none()
         if not proj:
             raise _http_404(f"Project {file.project_id} not found or no permission.")
@@ -771,15 +827,16 @@ def insert_file_info_repo(
             if content:
                 parts.append(f"{t}:\n{content}\n")
         task = db.query(Task).filter(Task.project_id == file.project_id).order_by(Task.id.asc()).all()
-        for i, t in enumerate(task, start=1):
-            content_md = t.description_md or ""
-            parts.append(f"TASK {i}번:\n{content_md}\n")
+        if task:
+            for i, t in enumerate(task, start=1):
+                content_md = t.description_md or ""
+                parts.append(f"TASK {i}번:\n{content_md}\n")
 
     # Task 파일 존재하지 않는 경우
     elif file_type == "TASK":
         proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == request.project_id).one_or_none()
         if not proj:
-            raise _http_404(f"Project {file.project_id} not found or no permission.")
+            raise _http_404(f"Project {request.project_id} not found or no permission.")
         proj_id = proj.id
         parts.append(f"PROJECT:\n{proj.content_md or ''}")
         for t in ["PRD", "USER_STORY", "SRS"]:
