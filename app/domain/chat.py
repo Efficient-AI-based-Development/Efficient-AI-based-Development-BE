@@ -909,8 +909,9 @@ def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: S
 def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
+        project_info = json.loads(request.content_md)
         file = Project(
-            title="New Project",
+            title=project_info["title"] | "New Project",
             owner_id=user_id,
             content_md=request.content_md,
             status="in_progress",
