@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -21,9 +22,10 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
 )
 
+
 google_client_id = settings.google_client_id
 google_client_secret = settings.google_client_secret
-google_redirect_uri = settings.google_redirect_uri
+# google_redirect_uri = settings.google_redirect_uri
 BACKEND_BASE_URL = settings.BACKEND_BASE_URL
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
@@ -82,11 +84,19 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(auth_sc
 
 async def exchange_code_for_token(code: str) -> dict:
     token_url = "https://oauth2.googleapis.com/token"
+
+    environment = os.getenv("ENVIRONMENT", "development")  # "development" 또는 "production"
+
+    if environment == "production":
+        frontend_url = "https://atrina.vercel.app/document/setting1"
+    else:
+        frontend_url = "http://localhost:5173/document/setting1"  # 개발 환경
+
     data = {
         "code": code,
         "client_id": google_client_id,
         "client_secret": google_client_secret,
-        "redirect_uri": google_redirect_uri,
+        "redirect_uri": frontend_url,
         "grant_type": "authorization_code",
     }
 
