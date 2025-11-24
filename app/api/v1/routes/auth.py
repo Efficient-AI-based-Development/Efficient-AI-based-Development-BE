@@ -84,7 +84,7 @@ def refresh_token(
     return TokenPair(access_token=access_jwt, refresh_token=refresh_jwt)
 
 
-@router.get("/login/google/callback", response_model=TokenPair)
+@router.post("/login/google/exchange", response_model=TokenPair)
 async def google_callback(request: Request, db: Session = Depends(get_db)):
     code = request.query_params.get("code")
     if not code:
