@@ -15,7 +15,7 @@ class FileType(str, Enum):
 
 
 class ChatMessageRequest(BaseModel):
-    content_md: str
+    content_md: str | dict
 
 
 class ChatSessionCreateRequest(ChatMessageRequest):

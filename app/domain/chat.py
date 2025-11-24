@@ -54,6 +54,9 @@ CANCEL_SENTINEL = "[[CANCEL]]"
 
 
 async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, current_user: User, db: Session):
+    if isinstance(request.content_md, dict):
+        request.content_md = json.dumps(request.content_md, ensure_ascii=False)
+
     resp = create_chat_session_with_message_service(current_user.user_id, request.content_md, request, db)
 
     await ensure_worker(current_user.user_id, resp.chat_id, request.file_type.value.upper(), db)  # ① 워커 보장
@@ -61,6 +64,7 @@ async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, c
         db.query(ChatMessage).filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system").one_or_none()
     )
     content = ""
+
     if attached_info is None:
         content = request.content_md
     else:
@@ -909,9 +913,10 @@ def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: S
 def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
-        project_info = json.loads(request.content_md)
+        data = json.loads(request.content_md)
+        title = data.get("title", "New Project")
         file = Project(
-            title=project_info["title"] | "New Project",
+            title=title,
             owner_id=user_id,
             content_md=request.content_md,
             status="in_progress",

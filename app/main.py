@@ -38,6 +38,13 @@ app.add_exception_handler(Exception, general_exception_handler)
 app.include_router(v1_router, prefix=settings.api_prefix)
 
 
+# def fake_user():
+#     return User(user_id="test-user")
+#
+#
+# app.dependency_overrides[get_current_user] = fake_user
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     """루트 엔드포인트 - /docs로 리다이렉트"""
