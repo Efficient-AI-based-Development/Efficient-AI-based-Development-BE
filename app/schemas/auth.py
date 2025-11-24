@@ -7,6 +7,10 @@ class TokenPair(BaseModel):
     token_type: str = "bearer"
 
 
+class GoogleCodeRequest:
+    code: str
+
+
 class LoginRequest(BaseModel):
     user_id: str
     user_password: str

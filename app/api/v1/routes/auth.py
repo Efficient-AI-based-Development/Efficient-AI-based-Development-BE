@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy.orm import Session
@@ -18,7 +18,7 @@ from app.domain.auth import (
     get_google_userinfo,
     get_or_create_user_from_google,
 )
-from app.schemas.auth import TokenPair
+from app.schemas.auth import GoogleCodeRequest, TokenPair
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -85,8 +85,8 @@ def refresh_token(
 
 
 @router.post("/login/google/exchange", response_model=TokenPair)
-async def google_callback(request: Request, db: Session = Depends(get_db)):
-    code = request.query_params.get("code")
+async def google_exchange(request: GoogleCodeRequest, db: Session = Depends(get_db)):
+    code = request.code
     if not code:
         raise HTTPException(400, "code가 없습니다.")
 
