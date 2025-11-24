@@ -1,6 +1,6 @@
 """Task API routes."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -10,17 +10,24 @@ from app.domain.tasks import (
     get_pagination_params,
     get_task_service,
     list_tasks_service,
+    task_insights_service,
     update_task_service,
 )
 from app.schemas.task import (
     TaskCreate,
     TaskDeleteResponse,
     TaskDetailResponse,
+    TaskInsightResponse,
     TaskListResponse,
     TaskUpdate,
 )
 
 router = APIRouter(tags=["tasks"], dependencies=[Depends(get_db)])
+
+
+@router.get("/tasks/insights", response_model=TaskInsightResponse)
+def task_insights(project_id: int = Query(...), db: Session = Depends(get_db)):
+    return task_insights_service(project_id, db)
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)
