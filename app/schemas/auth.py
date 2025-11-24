@@ -7,7 +7,7 @@ class TokenPair(BaseModel):
     token_type: str = "bearer"
 
 
-class GoogleCodeRequest:
+class GoogleCodeRequest(BaseModel):
     code: str
 
 
