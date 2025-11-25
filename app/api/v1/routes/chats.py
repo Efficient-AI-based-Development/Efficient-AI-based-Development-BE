@@ -73,10 +73,10 @@ def store_file(
 
 
 @router.put("/update", response_model=UpdateFileResponse, status_code=200)
-def update_all_doc_file_by_tasks(
+async def update_all_doc_file_by_tasks(
     request: UpdateFileRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    update_doc_file_service(current_user.user_id, request.project_id, db)
+    await update_doc_file_service(current_user.user_id, request.project_id, db)
     return UpdateFileResponse(ok=True, project_id=request.project_id)

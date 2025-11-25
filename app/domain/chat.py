@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 from starlette.requests import Request
 
-from app.api.v1.routes.ai import (
+from app.db.database import get_db
+from app.db.models import ChatMessage, ChatSession, Document, Project, Task, User
+from app.domain.ai import (
     generate_prd_endpoint,
     generate_srs_endpoint,
     generate_tasklist_endpoint,
@@ -19,8 +21,6 @@ from app.api.v1.routes.ai import (
     srs_chat,
     userstory_chat,
 )
-from app.db.database import get_db
-from app.db.models import ChatMessage, ChatSession, Document, Project, Task, User
 from app.domain.auth import get_current_user
 from app.schemas.chat import (
     ChatMessageRequest,
@@ -322,24 +322,24 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                 file_type_local = station.file_type
                 if has_first:
                     if file_type_local == "PRD":
-                        answer = generate_prd_endpoint(prompt)
+                        answer = await generate_prd_endpoint(prompt)
                         data = answer.model_dump()
                         doc = data.get("prd_document")
                         msg = data.get("message")
                     elif file_type_local == "USER_STORY":
-                        answer = generate_userstory_endpoint(prompt)
+                        answer = await generate_userstory_endpoint(prompt)
                         data = answer.model_dump()
                         doc = data.get("user_story")
                         msg = data.get("message")
 
                     elif file_type_local == "SRS":
-                        answer = generate_srs_endpoint(prompt)
+                        answer = await generate_srs_endpoint(prompt)
                         data = answer.model_dump()
                         doc = data.get("srs_document")
                         msg = data.get("message")
 
                     elif file_type_local == "TASK":
-                        answer = generate_tasklist_endpoint("필요한 상위 문서의 내용은 user의 prompt에 넣었습니다", prompt)
+                        answer = await generate_tasklist_endpoint("필요한 상위 문서의 내용은 user의 prompt에 넣었습니다", prompt)
                         data = answer.model_dump()
                         doc = data.get("tasks")
                         msg = data.get("message")
@@ -347,24 +347,24 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                     has_first = False
                 else:
                     if file_type_local == "PRD":
-                        answer = prd_chat(doc, prompt)
+                        answer = await prd_chat(doc, prompt)
                         data = answer.model_dump()
                         doc = data.get("prd_document")
                         msg = data.get("message")
                     elif file_type_local == "USER_STORY":
-                        answer = userstory_chat(doc, prompt)
+                        answer = await userstory_chat(doc, prompt)
                         data = answer.model_dump()
                         doc = data.get("user_story")
                         msg = data.get("message")
 
                     elif file_type_local == "SRS":
-                        answer = srs_chat(doc, prompt)
+                        answer = await srs_chat(doc, prompt)
                         data = answer.model_dump()
                         doc = data.get("srs_document")
                         msg = data.get("message")
 
                     elif file_type_local == "TASK":
-                        answer = generate_tasklist_endpoint(task_content_md, prompt)
+                        answer = await generate_tasklist_endpoint(task_content_md, prompt)
                         data = answer.model_dump()
                         doc = data.get("tasks")
                         msg = data.get("message")
@@ -494,7 +494,7 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
     )
 
 
-def update_doc_file_service(user_id: str, project_id: int, db: Session):
+async def update_doc_file_service(user_id: str, project_id: int, db: Session):
     proj = db.query(Project).filter(Project.id == project_id, Project.owner_id == user_id).one_or_none()
     if proj is None:
         raise HTTPException(404, "Project not found")
@@ -515,11 +515,14 @@ def update_doc_file_service(user_id: str, project_id: int, db: Session):
         doc = ""
         attached_info = insert_file_info(user_id, project_id, db)
         if doc_type == "PRD":
-            doc = prd_chat(attached_info, prompt).model_dump()["prd_document"]
+            result = await prd_chat(attached_info, prompt)
+            doc = result.model_dump()["prd_document"]
         elif doc_type == "USER_STORY":
-            doc = userstory_chat(attached_info, prompt).model_dump()["user_story"]
+            result = await userstory_chat(attached_info, prompt)
+            doc = result.model_dump()["user_story"]
         elif doc_type == "SRS":
-            doc = srs_chat(attached_info, prompt).model_dump()["srs_document"]
+            result = await srs_chat(attached_info, prompt)
+            doc = result.model_dump()["srs_document"]
 
         data = (
             db.query(Document)
