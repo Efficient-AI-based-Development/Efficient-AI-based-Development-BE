@@ -1,5 +1,4 @@
-# app/api/endpoints.py
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 
 from ai_module.chains.prd_chain import (
     create_prd_chat_chain,
@@ -17,11 +16,10 @@ from ai_module.chains.userstory_chain import (
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/ai", tags=["ai"])
 
 
 # PRD 생성 API 엔드포인트
-def generate_prd_endpoint(user_input: str) -> str:
+async def generate_prd_endpoint(user_input: str) -> str:
     try:
         logger.info("[PRD] 요청 수신")
         logger.debug("[PRD] 입력 미리보기: %s", user_input[:120])
@@ -33,7 +31,7 @@ def generate_prd_endpoint(user_input: str) -> str:
         raise HTTPException(status_code=500, detail=f"PRD 서버 오류: {e}")
 
 
-def prd_chat(
+async def prd_chat(
     prd_document: str,
     user_feedback: str,
 ) -> str:
@@ -57,7 +55,7 @@ def prd_chat(
         raise HTTPException(status_code=500, detail=f"PRD Chat 서버 오류: {e}")
 
 
-def generate_srs_endpoint(user_input: str) -> str:
+async def generate_srs_endpoint(user_input: str) -> str:
     try:
         logger.info("[SRS] 요청 수신")
         logger.debug("[SRS] 입력 미리보기: %s", user_input[:120])
@@ -70,7 +68,7 @@ def generate_srs_endpoint(user_input: str) -> str:
 
 
 # SRS 문서 대화형 생성/수정 API 엔드포인트
-def srs_chat(
+async def srs_chat(
     srs_document: str,
     user_feedback: str,
 ) -> str:
@@ -94,7 +92,7 @@ def srs_chat(
         raise HTTPException(status_code=500, detail=f"SRS Chat 서버 오류: {e}")
 
 
-def generate_userstory_endpoint(user_input: str) -> str:
+async def generate_userstory_endpoint(user_input: str) -> str:
     try:
         logger.info("[USERSTORY] 요청 수신")
         logger.debug("[USERSTORY] 입력 미리보기: %s", user_input[:120])
@@ -110,7 +108,7 @@ def generate_userstory_endpoint(user_input: str) -> str:
 
 
 # User Story 대화형 생성/수정 API 엔드포인트
-def userstory_chat(
+async def userstory_chat(
     user_story: str,
     user_feedback: str,
 ) -> str:
@@ -135,7 +133,7 @@ def userstory_chat(
 
 
 # Task List 생성 API 엔드포인트
-def generate_tasklist_endpoint(prd_document: str | None = None, user_input: str | None = None) -> str:
+async def generate_tasklist_endpoint(prd_document: str | None = None, user_input: str | None = None) -> str:
     try:
         logger.info("[TaskList] 요청 수신")
         logger.debug("[TaskList] 입력 미리보기: %s", user_input[:120])

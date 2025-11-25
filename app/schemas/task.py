@@ -29,16 +29,6 @@ class TaskBase(BaseModel):
     due_at: datetime | None = Field(None, description="마감일")
 
 
-class TaskInsightRequest(BaseModel):
-    project_id: int
-
-
-class TaskInsightResponse(BaseModel):
-    task_completed_probability: float
-    task_last_updated: datetime | None
-    QA_test: int | None
-
-
 class TaskCreate(TaskBase):
     """태스크 생성 요청 스키마
 

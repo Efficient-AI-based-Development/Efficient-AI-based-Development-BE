@@ -7,13 +7,11 @@ from app.db.database import get_db
 from app.db.models import User
 from app.domain.auth import get_current_user
 from app.domain.documents import (
-    create_document_service,
     get_document_list_service,
     get_document_service,
     update_project_service,
 )
 from app.schemas.document import (
-    DocumentCreateRequest,
     DocumentPage,
     DocumentRead,
     DocumentUpdateRequest,
@@ -22,14 +20,14 @@ from app.schemas.document import (
 router = APIRouter(prefix="", tags=["documents"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/projects/{project_id}/", response_model=DocumentRead, status_code=201)
-def create_document(
-    project_id: int,
-    request: DocumentCreateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return create_document_service(project_id=project_id, user_id=current_user.user_id, request=request, db=db)
+# @router.post("/projects/{project_id}/", response_model=DocumentRead, status_code=201)
+# def create_document(
+#     project_id: int,
+#     request: DocumentCreateRequest,
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     return create_document_service(project_id=project_id, user_id=current_user.user_id, request=request, db=db)
 
 
 @router.get("/projects/{project_id}/docs/{type}", response_model=DocumentRead, status_code=200)
