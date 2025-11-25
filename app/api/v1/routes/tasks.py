@@ -7,7 +7,6 @@ from app.db.database import get_db
 from app.domain.tasks import (
     create_task_service,
     delete_task_service,
-    get_pagination_params,
     get_task_service,
     list_tasks_service,
     task_insights_service,
@@ -42,14 +41,14 @@ def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TaskListResponse)
-def list_tasks(project_id: int, params=Depends(get_pagination_params), db: Session = Depends(get_db)):
+def list_tasks(project_id: int, db: Session = Depends(get_db)):
     """태스크 목록 조회
 
     GET /api/v1/projects/{project_id}/tasks
 
-    특정 프로젝트 내 Task 목록 조회 (페이지네이션 지원)
+    특정 프로젝트 내 Task 목록 조회
     """
-    return list_tasks_service(project_id, params, db)
+    return list_tasks_service(project_id, db)
 
 
 @router.get("/tasks/{task_id}", response_model=TaskDetailResponse)

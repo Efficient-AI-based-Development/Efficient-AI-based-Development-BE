@@ -388,6 +388,10 @@ class MCPRunEventsResponse(BaseModel):
 
 
 class MCPProjectStatusItem(BaseModel):
+    has_active_session: bool = Field(
+        default=False,
+        description="활성 세션이 있는지 여부",
+    )
     id: str = Field(
         ...,
         description="프로젝트 ID",

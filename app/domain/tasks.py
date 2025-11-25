@@ -75,30 +75,20 @@ def get_task_service(task_id: int, db: Session) -> TaskDetailResponse:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
-def list_tasks_service(project_id: int, params: PaginationParams, db: Session) -> TaskListResponse:
-    """태스크 목록 조회 서비스 (페이지네이션)"""
+def list_tasks_service(project_id: int, db: Session) -> TaskListResponse:
+    """태스크 목록 조회 서비스"""
     try:
         # 프로젝트 존재 여부 확인
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
 
-        q = (params.q or "").strip() or None
-        per_page = min(max(10, params.page_size), 50)
-        page = max(1, params.page or 1)
-
-        tasks_orm, total = get_task_list_repo(project_id=project_id, q=q, page=page, per_page=per_page, db=db)
-
-        total_pages = max(1, int((total + per_page - 1) / per_page))
-
-        if page > total_pages:
-            raise HTTPException(
-                status_code=400,
-                detail=(f"page는 최대 {total_pages}까지입니다. " f"(total={total}, page_size={params.page_size})",),
-            )
+        # 페이지네이션 없이 모든 태스크 조회
+        tasks_orm = db.query(Task).filter(Task.project_id == project_id).order_by(Task.id.desc()).all()
 
         tasks: list[TaskResponse] = [to_task_response(t) for t in tasks_orm]
-        meta = TaskListMeta(page=page, page_size=per_page, total=total)
+        total = len(tasks)
+        meta = TaskListMeta(page=1, page_size=total, total=total)
 
         return TaskListResponse(data=tasks, meta=meta)
     except SQLAlchemyError:
