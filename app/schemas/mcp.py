@@ -120,6 +120,12 @@ class MCPSessionData(BaseModel):
         description="세션이 속하는 연결 ID",
         examples=["cn_0007"],
     )
+    project_id: str = Field(
+        ...,
+        alias="projectId",
+        description="세션이 속한 프로젝트 ID",
+        examples=["41"],
+    )
     status: str = Field(
         ...,
         description="세션 상태. ready/active/closed/error 등",

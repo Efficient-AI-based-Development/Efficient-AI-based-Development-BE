@@ -93,21 +93,38 @@ class MCPService:
     # ------------------------------------------------------------------
     def create_session(self, payload: MCPSessionCreate) -> MCPSessionData:
         """MCP 세션 생성."""
-        connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
-        connection = self._get_connection(connection_id)
+        try:
+            connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
+        except ValidationError as exc:
+            raise ValidationError(f"연결 ID 형식이 올바르지 않습니다: {payload.connection_id}. {exc.message}") from exc
+        
+        try:
+            connection = self._get_connection(connection_id)
+        except NotFoundError as exc:
+            raise ValidationError(f"연결을 찾을 수 없습니다: {payload.connection_id}") from exc
+        
         if connection.status not in {"connected", "active"}:
-            raise ValidationError("활성화된 MCP 연결에서만 세션을 시작할 수 있습니다.")
+            raise ValidationError(
+                f"활성화된 MCP 연결에서만 세션을 시작할 수 있습니다. "
+                f"현재 연결 상태: {connection.status}. "
+                f"연결을 활성화하려면 POST /api/v1/mcp/connections/{payload.connection_id}/activate 를 호출하세요."
+            )
 
-        session = models.MCPSession(
-            connection_id=connection.id,
-            status="ready",
-            context=self._dump_json({}),
-            metadata_json=self._dump_json(payload.metadata),
-        )
-        self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
-        return self._to_session_data(session)
+        try:
+            session = models.MCPSession(
+                connection_id=connection.id,
+                project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
+                status="ready",
+                context=self._dump_json({}),
+                metadata_json=self._dump_json(payload.metadata),
+            )
+            self.db.add(session)
+            self.db.commit()
+            self.db.refresh(session)
+            return self._to_session_data(session)
+        except Exception as exc:
+            self.db.rollback()
+            raise ValidationError(f"세션 생성 중 오류가 발생했습니다: {str(exc)}") from exc
 
     def list_sessions(self, connection_identifier: str | None = None) -> list[MCPSessionData]:
         """MCP 세션 목록 조회."""
@@ -418,12 +435,12 @@ class MCPService:
             )
             
             result.append(
-                MCPProjectStatusItem(
-                    id=str(project.id),
-                    name=project.title,  # Project 모델의 title 필드 사용
-                    mcp_status=self._resolve_project_status(project.mcp_connections),
+            MCPProjectStatusItem(
+                id=str(project.id),
+                name=project.title,  # Project 모델의 title 필드 사용
+                mcp_status=self._resolve_project_status(project.mcp_connections),
                     has_active_session=active_sessions_count > 0,
-                )
+            )
             )
         return result
 
@@ -774,6 +791,7 @@ class MCPService:
         return MCPSessionData(
             session_id=self._encode_id("ss", session.id),
             connection_id=self._encode_id("cn", session.connection_id),
+            project_id=str(session.project_id),
             status=session.status,
             created_at=session.created_at,
             metadata=self._load_json(session.metadata_json),

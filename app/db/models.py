@@ -144,6 +144,11 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    mcp_sessions: Mapped[list["MCPSession"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     # Check constraints
     __table_args__ = (
@@ -750,6 +755,12 @@ class MCPSession(Base):
         nullable=False,
         comment="연결 외래키",
     )
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="세션 소속 프로젝트",
+    )
     status = Column(
         String(50),
         nullable=False,
@@ -781,6 +792,7 @@ class MCPSession(Base):
 
     # Relationships
     connection = relationship("MCPConnection", back_populates="sessions")
+    project = relationship("Project", back_populates="mcp_sessions")
     runs = relationship("MCPRun", back_populates="session")
 
     __table_args__ = (
@@ -828,51 +840,18 @@ class MCPRun(Base):
         nullable=False,
         comment="세션 외래키",
     )
-    tool_name = Column(
-        String(255),
-        comment="툴 이름",
-    )
-    prompt_name = Column(
-        String(255),
-        comment="프롬프트 이름",
-    )
-    mode = Column(
-        String(50),
-        comment="실행 모드",
-    )
-    status = Column(
-        String(50),
-        nullable=False,
-        default="pending",
-        comment="실행 상태",
-    )
-    result = Column(
-        Text,
-        comment="실행 결과 (CLOB)",
-    )
-    config = Column(
-        Text,
-        comment="실행 설정 (JSON)",
-    )
-    arguments = Column(
-        Text,
-        comment="실행 인자 (JSON)",
-    )
-    progress = Column(
-        String(10),
-        comment="진행률 (0-1)",
-    )
-    message = Column(
-        String(500),
-        comment="상태 메시지",
-    )
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        comment="생성 시간",
-    )
+    tool_name = Column("tool_id", String(255), comment="툴 이름")
+    prompt_name = Column("prompt_name", String(255), comment="프롬프트 이름")
+    mode = Column("run_mode", String(50), comment="실행 모드")
+    status = Column(String(50), nullable=False, default="pending", comment="실행 상태")
+    result = Column("result", Text, comment="실행 결과 (CLOB)")
+    config = Column("config", Text, comment="실행 설정 (JSON)")
+    arguments = Column("arguments", Text, comment="실행 인자 (JSON)")
+    progress = Column("progress", String(10), comment="진행률 (0-1)")
+    message = Column("message", String(500), comment="상태 메시지")
+    created_at = Column("created_at", DateTime, nullable=False, default=datetime.utcnow, comment="생성 시간")
     updated_at = Column(
+        "updated_at",
         DateTime,
         nullable=False,
         default=datetime.utcnow,

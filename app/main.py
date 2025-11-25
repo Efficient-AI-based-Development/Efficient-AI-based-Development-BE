@@ -37,12 +37,33 @@ app.add_exception_handler(Exception, general_exception_handler)
 # API 라우터 등록
 app.include_router(v1_router, prefix=settings.api_prefix)
 
-
-# def fake_user():
-#     return User(user_id="test-user")
-#
-#
-# app.dependency_overrides[get_current_user] = fake_user
+# 개발 환경에서 인증 우회 (DEBUG 모드일 때만)
+if settings.debug:
+    from app.db.models import User
+    from app.domain.auth import get_current_user
+    
+    def fake_user():
+        # DB에서 첫 번째 사용자를 찾거나, 없으면 생성
+        from app.db.database import SessionLocal
+        db = SessionLocal()
+        try:
+            user = db.query(User).first()
+            if not user:
+                # 테스트용 사용자 생성
+                user = User(
+                    user_id="dev-user",
+                    email="dev@example.com",
+                    display_name="Dev User",
+                    password_hash="",
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            return user
+        finally:
+            db.close()
+    
+    app.dependency_overrides[get_current_user] = fake_user
 
 
 @app.get("/", include_in_schema=False)
