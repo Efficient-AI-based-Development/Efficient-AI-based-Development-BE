@@ -1,18 +1,25 @@
 """Task API routes."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.domain.tasks import (
+    create_task_service,
     delete_task_service,
     get_task_service,
     list_tasks_service,
+    start_development_service,
+    task_insights_service,
     update_task_service,
 )
 from app.schemas.task import (
+    StartDevelopmentRequest,
+    StartDevelopmentResponse,
+    TaskCreate,
     TaskDeleteResponse,
     TaskDetailResponse,
+    TaskInsightResponse,
     TaskListResponse,
     TaskUpdate,
 )
@@ -20,15 +27,20 @@ from app.schemas.task import (
 router = APIRouter(tags=["tasks"], dependencies=[Depends(get_db)])
 
 
-# @router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)
-# def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)):
-#     """태스크 생성
-#
-#     POST /api/v1/projects/{project_id}/tasks
-#
-#     특정 프로젝트 내 새로운 Task(기능, 버그, 기타) 생성 - AI 또는 사용자가 생성
-#     """
-#     return create_task_service(project_id, task, db)
+@router.get("/tasks/insights", response_model=TaskInsightResponse)
+def task_insights(project_id: int = Query(...), db: Session = Depends(get_db)):
+    return task_insights_service(project_id, db)
+
+
+@router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)
+def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)):
+    """태스크 생성
+
+    POST /api/v1/projects/{project_id}/tasks
+
+    특정 프로젝트 내 새로운 Task 생성 (타입: docs/design/dev). AI 또는 사용자가 생성.
+    """
+    return create_task_service(project_id, task, db)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TaskListResponse)
@@ -37,7 +49,7 @@ def list_tasks(project_id: int, db: Session = Depends(get_db)):
 
     GET /api/v1/projects/{project_id}/tasks
 
-    특정 프로젝트 내 Task 목록 조회
+    특정 프로젝트 내 Task 전체 목록 조회 (페이지네이션 없음)
     """
     return list_tasks_service(project_id, db)
 
@@ -73,3 +85,31 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     Task를 영구 삭제
     """
     return delete_task_service(task_id, db)
+
+
+@router.post("/tasks/{task_id}/start-development", response_model=StartDevelopmentResponse, status_code=201)
+def start_development(task_id: int, request: StartDevelopmentRequest, db: Session = Depends(get_db)):
+    """Start Development - vooster.ai 스타일 개발 시작
+
+    POST /api/v1/tasks/{task_id}/start-development
+
+    Task 정보를 자동으로 수집하여 MCP 세션을 생성하고 개발을 시작합니다.
+
+    ### 동작 흐름:
+    1. Task 및 관련 문서(PRD, SRS) 정보 수집
+    2. MCP 연결 생성/활성화 (없으면 자동 생성)
+    3. MCP 세션 생성
+    4. Task 기반 프롬프트 생성
+    5. MCP run 생성 및 실행
+
+    ### Request Body:
+    - `providerId` (optional): MCP 제공자 (chatgpt, claude, cursor). 기본값: chatgpt
+    - `options` (optional): 실행 옵션 (mode, temperature 등)
+
+    ### Response:
+    - `sessionId`: 생성된 세션 ID
+    - `runId`: 생성된 실행 ID
+    - `status`: 실행 상태
+    - `preview`: 미리보기 메시지
+    """
+    return start_development_service(task_id, request, db)

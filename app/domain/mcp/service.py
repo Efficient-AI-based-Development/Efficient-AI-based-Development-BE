@@ -456,6 +456,7 @@ class MCPService:
 
         run = models.MCPRun(
             session_id=session.id,
+            task_id=payload.task_id,
             tool_name=payload.tool_id,
             prompt_name=payload.prompt_id,
             mode=payload.mode,
@@ -801,6 +802,7 @@ class MCPService:
         return MCPRunData(
             run_id=self._encode_id("run", run.id),
             session_id=self._encode_id("ss", run.session_id),
+            task_id=run.task_id,
             mode=run.mode,
             status=self._map_run_status(run.status),
             created_at=run.created_at,
@@ -817,6 +819,7 @@ class MCPService:
         )
         return MCPRunStatusData(
             run_id=self._encode_id("run", run.id),
+            task_id=run.task_id,
             status=self._map_run_status(run.status),
             result=result_payload if isinstance(result_payload, dict) else None,
             message=run.message,

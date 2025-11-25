@@ -335,8 +335,8 @@ class Task(Base):
         title: 태스크 제목
         description: 태스크 설명 (CLOB)
         description_md: 태스크 설명 마크다운 (CLOB)
-        type: 태스크 타입 (VARCHAR2 + CHECK: 'feat', 'bug', 'docs', 'design', 'refactor')
-        source: 태스크 생성 소스 (VARCHAR2 + CHECK: 'MCP', 'USER', 'AI')
+        type: 태스크 타입 (VARCHAR2 + CHECK: 'docs', 'design', 'dev')
+        source: 태스크 생성 소스 (내부용)
         status: 태스크 상태 (VARCHAR2 + CHECK: 'todo', 'in_progress', 'review', 'done')
         priority: 우선순위 (INTEGER, 0-10)
         tags: 태그 목록 (CLOB, JSON 배열 문자열)
@@ -382,15 +382,8 @@ class Task(Base):
     type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default="feat",
+        default="dev",
         comment="태스크 타입",
-    )
-
-    source: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        default="USER",
-        comment="태스크 생성 소스",
     )
 
     status: Mapped[str] = mapped_column(
@@ -482,12 +475,8 @@ class Task(Base):
             name="chk_task_status",
         ),
         CheckConstraint(
-            "type IN ('feat', 'bug', 'docs', 'design', 'refactor')",
+            "type IN ('docs', 'design', 'dev')",
             name="chk_task_type",
-        ),
-        CheckConstraint(
-            "source IN ('MCP', 'USER', 'AI')",
-            name="chk_task_source",
         ),
         CheckConstraint(
             "priority >= 0 AND priority <= 10",
@@ -840,6 +829,12 @@ class MCPRun(Base):
         nullable=False,
         comment="세션 외래키",
     )
+    task_id = Column(
+        Integer,
+        ForeignKey("tasks.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="관련 태스크 ID (Start Development 플로우용)",
+    )
     tool_name = Column("tool_id", String(255), comment="툴 이름")
     prompt_name = Column("prompt_name", String(255), comment="프롬프트 이름")
     mode = Column("run_mode", String(50), comment="실행 모드")
@@ -861,6 +856,7 @@ class MCPRun(Base):
 
     # Relationships
     session = relationship("MCPSession", back_populates="runs")
+    task = relationship("Task", foreign_keys=[task_id])
 
     __table_args__ = (
         CheckConstraint(

@@ -261,6 +261,12 @@ class MCPRunCreate(BaseModel):
         description="실행을 수행할 세션 ID",
         examples=["ss_0003"],
     )
+    task_id: int | None = Field(
+        default=None,
+        alias="taskId",
+        description="이 실행이 속하는 태스크 ID (선택)",
+        examples=[123],
+    )
     mode: str = Field(
         "chat",
         description="실행 모드. chat/tool/prompt 중 하나",
@@ -305,6 +311,12 @@ class MCPRunData(BaseModel):
         description="실행이 속하는 세션 ID",
         examples=["ss_0003"],
     )
+    task_id: int | None = Field(
+        default=None,
+        alias="taskId",
+        description="관련 태스크 ID",
+        examples=[123],
+    )
     mode: str | None = Field(
         default=None,
         description="실행 모드 (chat/tool/prompt)",
@@ -342,6 +354,12 @@ class MCPRunStatusData(BaseModel):
         alias="runId",
         description="실행 ID",
         examples=["run_0010"],
+    )
+    task_id: int | None = Field(
+        default=None,
+        alias="taskId",
+        description="관련 태스크 ID",
+        examples=[123],
     )
     status: str = Field(
         ...,
