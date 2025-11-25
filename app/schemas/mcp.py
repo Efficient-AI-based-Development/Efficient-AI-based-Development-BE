@@ -210,6 +210,15 @@ class MCPResourceListResponse(BaseModel):
     data: list[MCPResourceItem]
 
 
+class MCPResourceReadResponse(BaseModel):
+    """리소스 읽기 응답 스키마"""
+
+    data: dict[str, Any] = Field(
+        ...,
+        description="리소스 내용 (URI 타입에 따라 구조가 다름)",
+    )
+
+
 class MCPPromptItem(BaseModel):
     prompt_id: str = Field(
         ...,

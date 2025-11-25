@@ -14,6 +14,7 @@ from app.schemas.mcp import (
     MCPProjectStatusResponse,
     MCPPromptListResponse,
     MCPResourceListResponse,
+    MCPResourceReadResponse,
     MCPRunCancelResponse,
     MCPRunCreate,
     MCPRunEventsResponse,
@@ -266,6 +267,33 @@ def list_tools(session_id: str = Query(..., alias="sessionId"), db: Session = De
 )
 def list_resources(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
     data = _service(db).list_resources(external_session_id=session_id)
+    return {"data": data}
+
+
+@router.get(
+    "/resources/read",
+    response_model=MCPResourceReadResponse,
+    summary="리소스 읽기",
+    description=(
+        "지정된 URI의 리소스 내용을 읽습니다.\n\n"
+        "### 쿼리 파라미터\n"
+        "- `sessionId` (필수): 세션 ID\n"
+        "- `uri` (필수): 읽을 리소스 URI\n\n"
+        "### 지원하는 URI 형식\n"
+        "- `file:///path/to/file`: 파일 시스템의 파일\n"
+        "- `search:///code?query=검색어`: 프로젝트 내 검색\n"
+        "- `project://tasks`: 프로젝트 태스크 목록\n"
+        "- `project://documents`: 프로젝트 문서 목록\n\n"
+        "### 응답\n"
+        "리소스 타입에 따라 다른 구조의 데이터를 반환합니다."
+    ),
+)
+def read_resource(
+    session_id: str = Query(..., alias="sessionId"),
+    uri: str = Query(..., description="읽을 리소스 URI"),
+    db: Session = Depends(get_db),
+):
+    data = _service(db).read_resource(external_session_id=session_id, uri=uri)
     return {"data": data}
 
 
