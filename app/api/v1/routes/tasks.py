@@ -1,23 +1,19 @@
 """Task API routes."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.domain.tasks import (
-    create_task_service,
     delete_task_service,
     get_pagination_params,
     get_task_service,
     list_tasks_service,
-    task_insights_service,
     update_task_service,
 )
 from app.schemas.task import (
-    TaskCreate,
     TaskDeleteResponse,
     TaskDetailResponse,
-    TaskInsightResponse,
     TaskListResponse,
     TaskUpdate,
 )
@@ -25,20 +21,15 @@ from app.schemas.task import (
 router = APIRouter(tags=["tasks"], dependencies=[Depends(get_db)])
 
 
-@router.get("/tasks/insights", response_model=TaskInsightResponse)
-def task_insights(project_id: int = Query(...), db: Session = Depends(get_db)):
-    return task_insights_service(project_id, db)
-
-
-@router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)
-def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)):
-    """태스크 생성
-
-    POST /api/v1/projects/{project_id}/tasks
-
-    특정 프로젝트 내 새로운 Task(기능, 버그, 기타) 생성 - AI 또는 사용자가 생성
-    """
-    return create_task_service(project_id, task, db)
+# @router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)
+# def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)):
+#     """태스크 생성
+#
+#     POST /api/v1/projects/{project_id}/tasks
+#
+#     특정 프로젝트 내 새로운 Task(기능, 버그, 기타) 생성 - AI 또는 사용자가 생성
+#     """
+#     return create_task_service(project_id, task, db)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TaskListResponse)
