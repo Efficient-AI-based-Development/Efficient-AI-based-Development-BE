@@ -327,9 +327,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         answer = await pm_agent_endpoint(prompt)
                         data = answer.model_dump()
                         doc = data.get("metadata")
-                        doc = json.dumps(doc, ensure_ascii=False)
                         msg = {k: v for k, v in data.items() if k != "metadata"}
-                        msg = json.dumps(msg, ensure_ascii=False)
                     elif file_type_local == "PRD":
                         answer = await generate_prd_endpoint(prompt)
                         data = answer.model_dump()
@@ -356,14 +354,11 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                     has_first = False
                 else:
                     if file_type_local == "PROJECT":
-                        doc = json.loads(doc)
                         doc = ProjectMetadata(**doc)
                         answer = await pm_agent_chat(doc, prompt)
                         data = answer.model_dump()
                         doc = data.get("metadata")
-                        doc = json.dumps(doc, ensure_ascii=False)
                         msg = {k: v for k, v in data.items() if k != "metadata"}
-                        msg = json.dumps(msg, ensure_ascii=False)
                     elif file_type_local == "PRD":
                         answer = await prd_chat(doc, prompt)
                         data = answer.model_dump()
@@ -557,7 +552,7 @@ def store_document_content(
     user_id: str,
     cur_chat_session: ChatSession,
     project_id: int,
-    content_md: str | None,
+    content_md: Any | None,
     db: Session,
 ):
     content_md = content_md if content_md else ""
@@ -567,10 +562,9 @@ def store_document_content(
         proj = db.query(Project).filter(Project.owner_id == user_id, Project.id == file_id).one()
 
         try:
-            parsed = json.loads(content_md)
-            title = parsed.get("project_name")
+            title = content_md.get("project_name") or content_md.get("title")  # 메타데이터에서 주는 정식 이름
             proj.title = title
-            proj.content_md = json.dumps(parsed, ensure_ascii=False)
+            proj.content_md = json.dumps(content_md, ensure_ascii=False)
         except Exception:
             proj.content_md = content_md  # 그냥 raw text 저장
 
