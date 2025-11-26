@@ -120,6 +120,12 @@ class MCPSessionData(BaseModel):
         description="세션이 속하는 연결 ID",
         examples=["cn_0007"],
     )
+    project_id: str = Field(
+        ...,
+        alias="projectId",
+        description="세션이 속한 프로젝트 ID",
+        examples=["41"],
+    )
     status: str = Field(
         ...,
         description="세션 상태. ready/active/closed/error 등",
@@ -210,6 +216,15 @@ class MCPResourceListResponse(BaseModel):
     data: list[MCPResourceItem]
 
 
+class MCPResourceReadResponse(BaseModel):
+    """리소스 읽기 응답 스키마"""
+
+    data: dict[str, Any] = Field(
+        ...,
+        description="리소스 내용 (URI 타입에 따라 구조가 다름)",
+    )
+
+
 class MCPPromptItem(BaseModel):
     prompt_id: str = Field(
         ...,
@@ -245,6 +260,12 @@ class MCPRunCreate(BaseModel):
         alias="sessionId",
         description="실행을 수행할 세션 ID",
         examples=["ss_0003"],
+    )
+    task_id: int | None = Field(
+        default=None,
+        alias="taskId",
+        description="이 실행이 속하는 태스크 ID (선택)",
+        examples=[123],
     )
     mode: str = Field(
         "chat",
@@ -290,6 +311,12 @@ class MCPRunData(BaseModel):
         description="실행이 속하는 세션 ID",
         examples=["ss_0003"],
     )
+    task_id: int | None = Field(
+        default=None,
+        alias="taskId",
+        description="관련 태스크 ID",
+        examples=[123],
+    )
     mode: str | None = Field(
         default=None,
         description="실행 모드 (chat/tool/prompt)",
@@ -327,6 +354,12 @@ class MCPRunStatusData(BaseModel):
         alias="runId",
         description="실행 ID",
         examples=["run_0010"],
+    )
+    task_id: int | None = Field(
+        default=None,
+        alias="taskId",
+        description="관련 태스크 ID",
+        examples=[123],
     )
     status: str = Field(
         ...,
@@ -379,6 +412,10 @@ class MCPRunEventsResponse(BaseModel):
 
 
 class MCPProjectStatusItem(BaseModel):
+    has_active_session: bool = Field(
+        default=False,
+        description="활성 세션이 있는지 여부",
+    )
     id: str = Field(
         ...,
         description="프로젝트 ID",

@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20251117'
-down_revision = ('20251109_mcp_run_timestamps', 'add_task_fields')
+down_revision = ('20251109_mcp_run_timestamps', '20251109_add_task_fields')
 branch_labels = None
 depends_on = None
 

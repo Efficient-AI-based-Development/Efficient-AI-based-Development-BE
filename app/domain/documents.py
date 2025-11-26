@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
+from app.core.config import settings
 from app.db.models import Document, Project
 from app.schemas.document import (
     DocumentCreateRequest,
@@ -95,7 +96,10 @@ def check_document_exist(project_id: int, user_id: str, request: DocumentCreateR
 
 
 def get_project_by_id(project_id: int, user_id: str, db: Session) -> Project | None:
-    return db.query(Project).filter(Project.owner_id == user_id, Project.id == project_id).one_or_none()
+    query = db.query(Project).filter(Project.id == project_id)
+    if not settings.debug:
+        query = query.filter(Project.owner_id == user_id)
+    return query.one_or_none()
 
 
 def create_new_document_repo(project_id: int, user_id: str, request: DocumentCreateRequest, db: Session) -> Document:
