@@ -12,6 +12,9 @@ from ai_module.chains.srs_chain import (
     create_srs_chat_chain,
     generate_srs,
 )
+from ai_module.chains.task_ai_chain import (
+    add_task,
+)
 from ai_module.chains.tasklist_chain import generate_tasklist
 from ai_module.chains.userstory_chain import (
     create_userstory_chat_chain,
@@ -20,6 +23,8 @@ from ai_module.chains.userstory_chain import (
 from app.schemas.ai import (
     PMAgentOutput,
     ProjectMetadata,
+    TaskAddInput,
+    TaskAIOutput,
 )
 from app.utils.logger import get_logger
 
@@ -186,3 +191,23 @@ async def pm_agent_chat(current_metadata: ProjectMetadata, user_feedback: str) -
     except Exception as e:
         logger.exception("[PM-Agent-Chat] 오류 발생: %s", e)
         raise HTTPException(status_code=500, detail="PM Agent Chat 서버 오류: %e")
+
+
+async def task_add_endpoint(task_input: TaskAddInput) -> TaskAIOutput:
+    try:
+        logger.info("[Task-AI-Add] 요청 수신 (existing_tasks=%d)", len(task_input.existing_tasks))
+        logger.debug("[Task-AI-Add] 요청: %s", task_input.user_request[:120])
+        result = add_task(
+            task_input.existing_tasks,
+            task_input.user_request,
+            task_input.project_context,
+        )
+        logger.info(
+            "[Task-AI-Add] Task 추가 완료 (new_task_id=%s, title=%s)",
+            result.task.task_id,
+            result.task.title,
+        )
+        return result
+    except Exception as e:
+        logger.exception("[Task-AI-Add] 오류 발생: %s", e)
+        raise HTTPException(status_code=500, detail="Task Add 서버 오류: %e")

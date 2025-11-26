@@ -21,10 +21,11 @@ from app.domain.ai import (
     pm_agent_endpoint,
     prd_chat,
     srs_chat,
+    task_add_endpoint,
     userstory_chat,
 )
 from app.domain.auth import get_current_user
-from app.schemas.ai import ProjectMetadata
+from app.schemas.ai import ProjectMetadata, TaskAddInput
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatSessionCreateRequest,
@@ -62,7 +63,14 @@ async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, c
 
     resp = create_chat_session_with_message_service(current_user.user_id, request.content_md, request, db)
 
-    await ensure_worker(current_user.user_id, resp.chat_id, request.file_type.value.upper(), db)  # ① 워커 보장
+    chat_session = db.query(ChatSession).filter(ChatSession.id == resp.chat_id).one_or_none()
+
+    # 태스크 추가 생성인 경우
+    if chat_session.file_type == "TASKS":
+        await ensure_worker(current_user.user_id, resp.chat_id, "TASKS", db)  # 워커 보장
+
+    else:
+        await ensure_worker(current_user.user_id, resp.chat_id, request.file_type.value.upper(), db)  # 워커 보장
     attached_info = (
         db.query(ChatMessage).filter(ChatMessage.session_id == resp.chat_id, ChatMessage.role == "system").one_or_none()
     )
@@ -351,6 +359,17 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         doc = data.get("tasks")
                         msg = "테스크 생성이 완료되었습니다."
 
+                    elif file_type_local == "TASKS":
+                        prompt = TaskAddInput(
+                            existing_tasks=[],
+                            user_request=prompt,
+                            project_context="기존 상위 문서 및 Task 내용은 user의 user_request 넣었습니다",
+                        )
+                        answer = await task_add_endpoint(prompt)
+                        data = answer.model_dump()
+                        doc = data.get("task")
+                        msg = {k: v for k, v in data.items() if k != "task"}
+
                     has_first = False
                 else:
                     if file_type_local == "PROJECT":
@@ -382,6 +401,17 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         doc = data.get("tasks")
                         msg = "테스크 생성이 완료되었습니다."
 
+                    elif file_type_local == "TASKS":
+                        prompt = TaskAddInput(
+                            existing_tasks=[],
+                            user_request=prompt,
+                            project_context="기존 상위 문서 및 Task 내용은 user의 user_reques에 넣었습니다",
+                        )
+                        answer = await task_add_endpoint(prompt)
+                        data = answer.model_dump()
+                        doc = data.get("task")
+                        msg = {k: v for k, v in data.items() if k != "task"}
+
                 station.last_doc = doc
 
                 await station.queue_out.put(
@@ -398,11 +428,17 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                 if station.cancel_event.is_set():
                     break
 
+                # DB 저장용 content는 항상 문자열로
+                if isinstance(msg, dict | list):
+                    content_str = json.dumps(msg, ensure_ascii=False)
+                else:
+                    content_str = str(msg)
+
                 db.add(
                     ChatMessage(
                         session_id=session_id,
                         role="assistant",
-                        content=msg,
+                        content=content_str,
                         user_id=user_id,
                     )
                 )
@@ -544,6 +580,7 @@ async def update_doc_file_service(user_id: str, project_id: int, db: Session):
         )
         if data:
             data.content_md = doc or data.content_md
+            data.last_editor_id = user_id
         db.commit()
         db.refresh(data)
 
@@ -593,8 +630,8 @@ def store_document_content(
         for task in content_md:
             data = Task(
                 project_id=project_id,
-                title=task["title"],
-                tags=task["tag"],
+                title=f"Task{task['task_id']}. {task['title']}",
+                tags=f"{task['assigned_role']}({task['tag']})",
                 priority=task["priority"],
                 description=task["description"],
                 description_md=task["description"],
@@ -603,10 +640,33 @@ def store_document_content(
         # task 생성
         if tasks is None:
             return None
+    elif file_type == "TASKS":
 
-        # task 추가 생성
+        # content_md가 dict인지 string인지 구분해서 처리
+        if isinstance(content_md, dict):
+            task = content_md
+
+        elif isinstance(content_md, str):
+            try:
+                task = json.loads(content_md)
+            except Exception:
+                raise HTTPException(400, "TASK content_md는 JSON 형식이어야 합니다.")
+
         else:
-            return 1
+            raise HTTPException(400, "TASK content_md 형식이 잘못되었습니다.")
+
+        # SQLAlchemy Task 생성
+        data = Task(
+            project_id=project_id,
+            title=f"Task{task['task_id']}. {task['title']}",
+            tags=f"{task['assigned_role']}({task['tag']})",
+            priority=task["priority"],
+            description=task["description"],
+            description_md=task["description"],
+        )
+
+        db.add(data)
+        return data
 
     else:
         raise _http_400(f"Unsupported file_type: {file_type}")
@@ -661,7 +721,7 @@ def create_chat_session_with_message_service(
             system_content.content += (
                 "PRD, USER_STORY, SRS, TASK 문서를 토대로 user_input에 따라 추가적인 TASK를 생성하려고 합니다."
                 "이때 기존의 TASK는 출력하지 않고 추가로 작성된 TASK만 출력해주세요."
-                "출력되는 TASK들의 제목도 작성해야합니다"
+                "출력되는 TASK들의 제목도 작성해야합니다\n\n"
             )
     db.add(ChatMessage(session_id=chat_session.id, role="user", content=user_message, user_id=user_id))
     db.commit()
@@ -761,6 +821,7 @@ def create_chat_session(user_id: str, file: Any, file_type: str, db: Session) ->
         target_file_id = file.id
     elif isinstance(file, Task):  # TASK 존재 하는 경우
         target_file_id = file.id
+        file_type = "TASKS"
 
     else:
         # TASK가 존재 하지 않아 임의 id 부여
