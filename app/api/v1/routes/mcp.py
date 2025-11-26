@@ -49,9 +49,9 @@ def _service(db: Session) -> MCPService:
         "예시 응답:\n"
         "```json\n"
         "{\n"
-        "  \"data\": [\n"
-        "    {\"id\": \"41\", \"name\": \"AI Efficient\", \"mcpStatus\": \"connected\", \"hasActiveSession\": true},\n"
-        "    {\"id\": \"42\", \"name\": \"Demo\", \"mcpStatus\": null, \"hasActiveSession\": false}\n"
+        '  "data": [\n'
+        '    {"id": "41", "name": "AI Efficient", "mcpStatus": "connected", "hasActiveSession": true},\n'
+        '    {"id": "42", "name": "Demo", "mcpStatus": null, "hasActiveSession": false}\n'
         "  ]\n"
         "}\n"
         "```"
@@ -175,12 +175,12 @@ def activate_connection(connection_id: str, db: Session = Depends(get_db)):
         "예시 응답(claude):\n"
         "```json\n"
         "{\n"
-        "  \"providerId\": \"claude\",\n"
-        "  \"providerName\": \"Claude Code MCP\",\n"
-        "  \"supportedAgents\": [\"Claude Code\", \"Cursor\"],\n"
-        "  \"prerequisites\": [\"Node.js 20 이상\", \"Anthropic API Key\"],\n"
-        "  \"platforms\": [ { \"os\": \"macOS\", \"steps\": [\n"
-        "    {\"title\": \"1. MCP 서버 연결\", \"commands\": [{\"text\": \"npm i -g fastmcp-cli\"}, {\"text\": \"fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>\"}]}\n"
+        '  "providerId": "claude",\n'
+        '  "providerName": "Claude Code MCP",\n'
+        '  "supportedAgents": ["Claude Code", "Cursor"],\n'
+        '  "prerequisites": ["Node.js 20 이상", "Anthropic API Key"],\n'
+        '  "platforms": [ { "os": "macOS", "steps": [\n'
+        '    {"title": "1. MCP 서버 연결", "commands": [{"text": "npm i -g fastmcp-cli"}, {"text": "fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>"}]}\n'
         "  ] } ]\n"
         "}\n"
         "```"
@@ -366,13 +366,13 @@ def create_run(run: MCPRunCreate, db: Session = Depends(get_db)):
         "예시 응답:\n"
         "```json\n"
         "{\n"
-        "  \"data\": {\n"
-        "    \"runId\": \"run_0123\",\n"
-        "    \"status\": \"running\",\n"
-        "    \"result\": null,\n"
-        "    \"output\": null,\n"
-        "    \"startedAt\": \"2024-12-01T12:30:00\",\n"
-        "    \"finishedAt\": null\n"
+        '  "data": {\n'
+        '    "runId": "run_0123",\n'
+        '    "status": "running",\n'
+        '    "result": null,\n'
+        '    "output": null,\n'
+        '    "startedAt": "2024-12-01T12:30:00",\n'
+        '    "finishedAt": null\n'
         "  }\n"
         "}\n"
         "```"

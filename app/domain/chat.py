@@ -17,11 +17,14 @@ from app.domain.ai import (
     generate_srs_endpoint,
     generate_tasklist_endpoint,
     generate_userstory_endpoint,
+    pm_agent_chat,
+    pm_agent_endpoint,
     prd_chat,
     srs_chat,
     userstory_chat,
 )
 from app.domain.auth import get_current_user
+from app.schemas.ai import ProjectMetadata
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatSessionCreateRequest,
@@ -321,8 +324,12 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                 file_type_local = station.file_type
                 if has_first:
                     if file_type_local == "PROJECT":
-                        doc = user_message
-                        msg = "프로젝트 생성이 완료되었습니다."
+                        answer = await pm_agent_endpoint(prompt)
+                        data = answer.model_dump()
+                        doc = data.get("metadata")
+                        doc = json.dumps(doc, ensure_ascii=False)
+                        msg = {k: v for k, v in data.items() if k != "metadata"}
+                        msg = json.dumps(msg, ensure_ascii=False)
                     elif file_type_local == "PRD":
                         answer = await generate_prd_endpoint(prompt)
                         data = answer.model_dump()
@@ -349,8 +356,14 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                     has_first = False
                 else:
                     if file_type_local == "PROJECT":
-                        doc = user_message
-                        msg = "프로젝트 생성이 완료되었습니다."
+                        doc = json.loads(doc)
+                        doc = ProjectMetadata(**doc)
+                        answer = await pm_agent_chat(doc, prompt)
+                        data = answer.model_dump()
+                        doc = data.get("metadata")
+                        doc = json.dumps(doc, ensure_ascii=False)
+                        msg = {k: v for k, v in data.items() if k != "metadata"}
+                        msg = json.dumps(msg, ensure_ascii=False)
                     elif file_type_local == "PRD":
                         answer = await prd_chat(doc, prompt)
                         data = answer.model_dump()
@@ -555,7 +568,9 @@ def store_document_content(
 
         try:
             parsed = json.loads(content_md)
-            proj.content_md = parsed.get("project_document")
+            title = parsed.get("project_name")
+            proj.title = title
+            proj.content_md = json.dumps(parsed, ensure_ascii=False)
         except Exception:
             proj.content_md = content_md  # 그냥 raw text 저장
 
