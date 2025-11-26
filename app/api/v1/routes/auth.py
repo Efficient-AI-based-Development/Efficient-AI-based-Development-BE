@@ -96,7 +96,7 @@ def refresh_token(
 
 
 @router.post("/login/google/exchange", response_model=TokenPair)
-async def google_exchange(request: GoogleCodeRequest, db: Session = Depends(get_db)):
+async def google_exchange(request: GoogleCodeRequest, response: Response, db: Session = Depends(get_db)):
     code = request.code
     if not code:
         raise HTTPException(400, "code가 없습니다.")
@@ -111,6 +111,16 @@ async def google_exchange(request: GoogleCodeRequest, db: Session = Depends(get_
 
     access_jwt = create_access_token(payload)
     refresh_jwt = create_refresh_token(payload)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_jwt,
+        httponly=True,
+        secure=(settings.ENV == "prod"),  # dev에서는 False, prod에서만 True
+        samesite="none",
+        max_age=60 * 60 * 24 * 7,
+        path="/",
+    )
 
     return TokenPair(
         access_token=access_jwt,
