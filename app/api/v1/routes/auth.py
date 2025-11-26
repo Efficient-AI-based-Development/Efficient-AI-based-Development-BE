@@ -88,6 +88,7 @@ def refresh_token(
         httponly=True,
         secure=True,  # HTTPS에서만
         samesite="none",  # cross-site 허용 (프론트 도메인 다를 때 필수)
+        max_age=60 * 60 * 24 * 7,
         path="/",
     )
 
