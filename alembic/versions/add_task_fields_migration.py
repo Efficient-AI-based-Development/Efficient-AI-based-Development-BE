@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "add_task_fields"
-down_revision = "e6945cbd3c1d"
+revision = "20251109_add_task_fields"
+down_revision = "20251109_mcp_run_timestamps"
 branch_labels = None
 depends_on = None
 

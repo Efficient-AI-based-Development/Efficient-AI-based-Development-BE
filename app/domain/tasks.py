@@ -17,6 +17,7 @@ from app.schemas.mcp import MCPConnectionCreate, MCPRunCreate, MCPSessionCreate
 from app.schemas.project import PaginationParams
 from app.schemas.task import (
     StartDevelopmentRequest,
+    StartDevelopmentCommandResponse,
     StartDevelopmentResponse,
     TaskCreate,
     TaskDeleteResponse,
@@ -26,6 +27,7 @@ from app.schemas.task import (
     TaskResponse,
     TaskUpdate,
 )
+from app.core.config import settings
 
 ############################ 서비스 정의 ############################
 
@@ -213,6 +215,33 @@ def start_development_service(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Start Development 실패: {str(e)}",
         )
+
+
+def start_development_command_service(task_id: int, provider_id: str | None, db: Session) -> StartDevelopmentCommandResponse:
+    """Start Development용 CLI 명령어를 생성해 반환."""
+    task = get_task_by_id(task_id, db)
+    project = db.query(Project).filter(Project.id == task.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project with ID {task.project_id} not found")
+
+    backend_url = settings.BACKEND_BASE_URL or "<BACKEND_URL>"
+    provider = provider_id or "claude"
+
+    command = (
+        f'curl -s -X POST "{backend_url}/api/v1/tasks/{task_id}/start-development" '
+        '-H "Content-Type: application/json" '
+        '-H "Authorization: Bearer <API_TOKEN>" '
+        f'-d \'{{"providerId":"{provider}","options":{{"mode":"impl","temperature":0.2}}}}\''
+    )
+
+    note = "터미널에 붙여넣어 실행하세요. <API_TOKEN>과 <BACKEND_URL>은 실제 값으로 교체 필요."
+    return StartDevelopmentCommandResponse(
+        command=command,
+        provider_id=provider,
+        task_id=task_id,
+        project_id=project.id,
+        note=note,
+    )
 
 
 def _collect_start_development_context(task_id: int, db: Session) -> StartDevelopmentContext:

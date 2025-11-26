@@ -1,7 +1,7 @@
 """add task_id to mcp_runs
 
 Revision ID: 20251125_add_task_id
-Revises: 20251117_merge_heads
+Revises: 20251117
 Create Date: 2025-11-25 13:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "20251125_add_task_id"
-down_revision: Union[str, None] = "20251117_merge_heads"
+revision: str = "20251125_add_task_id_to_mcp_runs"
+down_revision: Union[str, None] = "20251117"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

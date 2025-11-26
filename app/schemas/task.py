@@ -28,6 +28,16 @@ class TaskBase(BaseModel):
     due_at: datetime | None = Field(None, description="마감일")
 
 
+class TaskInsightRequest(BaseModel):
+    project_id: int
+
+
+class TaskInsightResponse(BaseModel):
+    task_completed_probability: float
+    task_last_updated: datetime | None
+    QA_test: int | None
+
+
 class TaskCreate(TaskBase):
     """태스크 생성 요청 스키마
 
@@ -197,3 +207,15 @@ class StartDevelopmentResponse(BaseModel):
     status: str = Field(..., description="실행 상태", examples=["running", "succeeded"])
     preview: str | None = Field(None, description="미리보기 메시지")
     summary: str | None = Field(None, description="실행 결과 요약")
+
+
+class StartDevelopmentCommandResponse(BaseModel):
+    """Start Development CLI 명령어 응답"""
+
+    command: str = Field(..., description="터미널에 붙여넣어 실행할 curl 명령어")
+    provider_id: str = Field(..., alias="providerId", description="MCP 제공자", examples=["claude"])
+    task_id: int = Field(..., alias="taskId", description="태스크 ID")
+    project_id: int = Field(..., alias="projectId", description="프로젝트 ID")
+    note: str | None = Field(None, description="명령 사용 시 참고할 메모")
+
+    model_config = ConfigDict(populate_by_name=True)

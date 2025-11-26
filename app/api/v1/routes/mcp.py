@@ -44,8 +44,17 @@ def _service(db: Session) -> MCPService:
         "응답 필드:\n"
         "- `id`: 프로젝트 ID\n"
         "- `name`: 프로젝트 이름\n"
-        "- `mcpStatus`: `connected`(활성 연결 있음) / `pending`(생성만 함) / `None`(연결 없음)\n"
-        "- `hasActiveSession`: 현재 열린 세션이 있는지 여부"
+        "- `mcpStatus`: `connected`(활성 연결) / `pending`(생성만 함) / `None`(연결 없음)\n"
+        "- `hasActiveSession`: 현재 열린 세션 여부\n\n"
+        "예시 응답:\n"
+        "```json\n"
+        "{\n"
+        "  \"data\": [\n"
+        "    {\"id\": \"41\", \"name\": \"AI Efficient\", \"mcpStatus\": \"connected\", \"hasActiveSession\": true},\n"
+        "    {\"id\": \"42\", \"name\": \"Demo\", \"mcpStatus\": null, \"hasActiveSession\": false}\n"
+        "  ]\n"
+        "}\n"
+        "```"
     ),
 )
 def list_project_statuses(db: Session = Depends(get_db)):
@@ -162,7 +171,19 @@ def activate_connection(connection_id: str, db: Session = Depends(get_db)):
     description=(
         "선택한 MCP 제공자(chatgpt/claude/cursor 등)를 fastMCP/에이전트에 붙이는 방법을 OS별 단계로 제공합니다.\n"
         "- 경로 파라미터: `provider_id` = chatgpt | claude | cursor\n"
-        "- 응답: 지원 에이전트, 선행 조건, OS별 단계(title/description/commands[])"
+        "- 응답: 지원 에이전트, 선행 조건, OS별 단계(title/description/commands[])\n\n"
+        "예시 응답(claude):\n"
+        "```json\n"
+        "{\n"
+        "  \"providerId\": \"claude\",\n"
+        "  \"providerName\": \"Claude Code MCP\",\n"
+        "  \"supportedAgents\": [\"Claude Code\", \"Cursor\"],\n"
+        "  \"prerequisites\": [\"Node.js 20 이상\", \"Anthropic API Key\"],\n"
+        "  \"platforms\": [ { \"os\": \"macOS\", \"steps\": [\n"
+        "    {\"title\": \"1. MCP 서버 연결\", \"commands\": [{\"text\": \"npm i -g fastmcp-cli\"}, {\"text\": \"fastmcp login --provider claude --api-key <ANTHROPIC_API_KEY>\"}]}\n"
+        "  ] } ]\n"
+        "}\n"
+        "```"
     ),
 )
 def get_provider_guide(provider_id: str, db: Session = Depends(get_db)):
@@ -249,65 +270,60 @@ def delete_session(session_id: str, db: Session = Depends(get_db)):
     "/tools",
     response_model=MCPToolListResponse,
     summary="세션별 툴 목록",
-    description=(
-        "세션에서 호출 가능한 MCP 툴 목록을 조회합니다.\n"
-        "- 쿼리: `sessionId` 필수 (ss_0001)\n"
-        "- 응답: `toolId`, `name`, `description`, 입력/출력 스키마(JSON Schema)"
-    ),
+    description="세션에서 호출 가능한 MCP 툴 목록을 조회합니다.\n- 쿼리: `sessionId` 필수 (ss_0001)\n- 응답: `toolId`, `name`, `description`, 입력/출력 스키마(JSON Schema)",
+    include_in_schema=False,
 )
 def list_tools(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
-    data = _service(db).list_tools(external_session_id=session_id)
-    return {"data": data}
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated: 툴 목록은 현재 플로우에서 사용하지 않습니다.",
+    )
 
 
 @router.get(
     "/resources",
     response_model=MCPResourceListResponse,
     summary="세션별 리소스 목록",
-    description=(
-        "세션이 접근할 수 있는 리소스 URI를 제공합니다.\n"
-        "- 쿼리: `sessionId` 필수\n"
-        "- 응답: `uri`(file:/// , search:/// , project:// 등), `kind`, `description`"
-    ),
+    description="세션이 접근할 수 있는 리소스 URI를 제공합니다.\n- 쿼리: `sessionId` 필수\n- 응답: `uri`(file:/// , search:/// , project:// 등), `kind`, `description`",
+    include_in_schema=False,
 )
 def list_resources(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
-    data = _service(db).list_resources(external_session_id=session_id)
-    return {"data": data}
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated: 리소스 목록은 현재 플로우에서 사용하지 않습니다.",
+    )
 
 
 @router.get(
     "/resources/read",
     response_model=MCPResourceReadResponse,
     summary="리소스 읽기",
-    description=(
-        "`uri`로 지정한 리소스를 실제 내용까지 읽어 반환합니다.\n"
-        "- 쿼리: `sessionId` 필수, `uri` 필수\n"
-        "- 지원 URI: file:///path, search:///code?query=..., project://tasks, project://documents\n"
-        "- 응답: 리소스 종류에 따라 내용/검색결과/목록을 포함"
-    ),
+    description="`uri`로 지정한 리소스를 실제 내용까지 읽어 반환합니다.\n- 쿼리: `sessionId` 필수, `uri` 필수\n- 지원 URI: file:///path, search:///code?query=..., project://tasks, project://documents\n- 응답: 리소스 종류에 따라 내용/검색결과/목록을 포함",
+    include_in_schema=False,
 )
 def read_resource(
     session_id: str = Query(..., alias="sessionId"),
     uri: str = Query(..., description="읽을 리소스 URI"),
     db: Session = Depends(get_db),
 ):
-    data = _service(db).read_resource(external_session_id=session_id, uri=uri)
-    return {"data": data}
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated: 리소스 읽기는 현재 플로우에서 사용하지 않습니다.",
+    )
 
 
 @router.get(
     "/prompts",
     response_model=MCPPromptListResponse,
     summary="세션별 프롬프트 목록",
-    description=(
-        "세션에서 사용할 수 있는 프롬프트 템플릿을 조회합니다.\n"
-        "- 쿼리: `sessionId` 필수\n"
-        "- 응답: `promptId`, `name`, `description`"
-    ),
+    description="세션에서 사용할 수 있는 프롬프트 템플릿을 조회합니다.\n- 쿼리: `sessionId` 필수\n- 응답: `promptId`, `name`, `description`",
+    include_in_schema=False,
 )
 def list_prompts(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
-    data = _service(db).list_prompts(external_session_id=session_id)
-    return {"data": data}
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated: 프롬프트 목록은 현재 플로우에서 사용하지 않습니다.",
+    )
 
 
 # Runs
@@ -346,7 +362,20 @@ def create_run(run: MCPRunCreate, db: Session = Depends(get_db)):
     description=(
         "run ID로 실행 상태와 결과를 확인합니다.\n"
         "- 경로: `run_id` (run_0001)\n"
-        "- 응답: `status`, `result`(원본 JSON), `output`(요약 텍스트), `startedAt`, `finishedAt`"
+        "- 응답: `status`, `result`(원본 JSON), `output`(요약 텍스트), `startedAt`, `finishedAt`\n\n"
+        "예시 응답:\n"
+        "```json\n"
+        "{\n"
+        "  \"data\": {\n"
+        "    \"runId\": \"run_0123\",\n"
+        "    \"status\": \"running\",\n"
+        "    \"result\": null,\n"
+        "    \"output\": null,\n"
+        "    \"startedAt\": \"2024-12-01T12:30:00\",\n"
+        "    \"finishedAt\": null\n"
+        "  }\n"
+        "}\n"
+        "```"
     ),
 )
 def get_run(run_id: str, db: Session = Depends(get_db)):
@@ -359,28 +388,25 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
     response_model=MCPRunCancelResponse,
     status_code=200,
     summary="실행 취소",
-    description=(
-        "진행 중인 run을 취소합니다.\n"
-        "- 경로: `run_id`\n"
-        "- 이미 완료/실패/취소된 run은 취소할 수 없습니다."
-    ),
+    description="진행 중인 run을 취소합니다.\n- 경로: `run_id`\n- 이미 완료/실패/취소된 run은 취소할 수 없습니다.",
+    include_in_schema=False,
 )
 def cancel_run(run_id: str, db: Session = Depends(get_db)):
-    data = _service(db).cancel_run(run_id)
-    return {"data": data}
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated: 실행 취소는 현재 플로우에서 사용하지 않습니다.",
+    )
 
 
 @router.get(
     "/runs/{run_id}/events",
     response_model=MCPRunEventsResponse,
     summary="실행 이벤트 조회",
-    description=(
-        "run과 관련된 이벤트를 시간 순으로 반환합니다.\n"
-        "- `RUN_STATUS`: 현재 상태/메시지\n"
-        "- `RUN_RESULT`: 최종 결과(JSON)\n"
-        "폴링하거나 SSE 대용으로 사용할 수 있습니다."
-    ),
+    description="run과 관련된 이벤트를 시간 순으로 반환합니다.\n- `RUN_STATUS`: 현재 상태/메시지\n- `RUN_RESULT`: 최종 결과(JSON)\n폴링하거나 SSE 대용으로 사용할 수 있습니다.",
+    include_in_schema=False,
 )
 def stream_run_events(run_id: str, db: Session = Depends(get_db)):
-    data = _service(db).list_run_events(run_id)
-    return {"data": data}
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated: 실행 이벤트 조회는 현재 플로우에서 사용하지 않습니다.",
+    )
