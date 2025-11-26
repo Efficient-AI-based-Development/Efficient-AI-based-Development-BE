@@ -179,3 +179,23 @@ class PMAgentOutput(BaseModel):
 class PMAgentChatInput(BaseModel):
     current_metadata: ProjectMetadata = Field(..., description="현재 프로젝트 메타데이터")
     user_feedback: str = Field(..., description="사용자의 수정 요청 또는 피드백")
+
+
+# Task AI Agent - 기존 Task 수정
+class TaskModifyInput(BaseModel):
+    current_task: Task = Field(..., description="수정할 기존 Task")
+    user_feedback: str = Field(..., description="수정 요청 내용")
+
+
+# Task AI Agent - 새 Task 추가
+class TaskAddInput(BaseModel):
+    existing_tasks: list[Task]
+    user_request: str = Field(..., description="추가하고 싶은 Task 설명")
+    project_context: str | None = Field(None, description="프로젝트 컨텍스트 (선택)")
+
+
+# Task AI Agent - 출력
+class TaskAIOutput(BaseModel):
+    task: Task = Field(..., description="수정되거나 새로 생성된 Task")
+    changes: list[str] = Field(default_factory=list, description="변경 사항 요약")
+    message: str = Field(..., description="사용자에게 안내하는 한국어 메시지")
