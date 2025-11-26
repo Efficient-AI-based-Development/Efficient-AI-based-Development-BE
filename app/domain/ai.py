@@ -1,5 +1,9 @@
 from fastapi import HTTPException
 
+from ai_module.chains.pm_chain import (
+    generate_pm_metadata,
+    update_pm_metadata,
+)
 from ai_module.chains.prd_chain import (
     create_prd_chat_chain,
     generate_prd,
@@ -12,6 +16,10 @@ from ai_module.chains.tasklist_chain import generate_tasklist
 from ai_module.chains.userstory_chain import (
     create_userstory_chat_chain,
     generate_userstory,
+)
+from app.schemas.ai import (
+    PMAgentOutput,
+    ProjectMetadata,
 )
 from app.utils.logger import get_logger
 
@@ -146,3 +154,35 @@ async def generate_tasklist_endpoint(prd_document: str | None = None, user_input
     except Exception as e:
         logger.exception("[TaskList] 오류 발생: %s", e)
         raise HTTPException(status_code=500, detail=f"Task List 서버 오류: {e}")
+
+
+# PM Agent 초기 메타데이터 추출 API 엔드포인트
+async def pm_agent_endpoint(user_input: str) -> str:
+    try:
+        logger.info("[PM-Agent] 요청 수신")
+        logger.debug("[PM-Agent] 입력: %s", user_input[:120])
+        result = generate_pm_metadata(user_input)
+        logger.info(
+            "[PM-Agent] 메타데이터 추출 완료 (프로젝트명=%s)",
+            result.metadata.project_name,
+        )
+        return result
+    except Exception as e:
+        logger.exception("[PM-Agent] 오류 발생: %s", e)
+        raise HTTPException(status_code=500, detail=f"PM Agent 서버 오류: {e}")
+
+
+# PM Agent 대화형 수정 API 엔드포인트
+async def pm_agent_chat(current_metadata: ProjectMetadata, user_feedback: str) -> PMAgentOutput:
+    try:
+        logger.info("[PM-Agent-Chat] 요청 수신")
+        logger.debug("[PM-Agent-Chat] 피드백: %s", user_feedback[:120])
+        result = update_pm_metadata(current_metadata, user_feedback)
+        logger.info(
+            "[PM-Agent-Chat] 메타데이터 수정 완료 (프로젝트명=%s)",
+            result.metadata.project_name,
+        )
+        return result
+    except Exception as e:
+        logger.exception("[PM-Agent-Chat] 오류 발생: %s", e)
+        raise HTTPException(status_code=500, detail="PM Agent Chat 서버 오류: %e")

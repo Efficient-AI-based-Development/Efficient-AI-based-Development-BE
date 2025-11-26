@@ -97,12 +97,12 @@ class MCPService:
             connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
         except ValidationError as exc:
             raise ValidationError(f"연결 ID 형식이 올바르지 않습니다: {payload.connection_id}. {exc.message}") from exc
-        
+
         try:
             connection = self._get_connection(connection_id)
         except NotFoundError as exc:
             raise ValidationError(f"연결을 찾을 수 없습니다: {payload.connection_id}") from exc
-        
+
         if connection.status not in {"connected", "active"}:
             raise ValidationError(
                 f"활성화된 MCP 연결에서만 세션을 시작할 수 있습니다. "
@@ -328,12 +328,14 @@ class MCPService:
             .all()
         )
         for task in tasks:
-            results.append({
-                "type": "task",
-                "id": task.id,
-                "title": task.title,
-                "status": task.status,
-            })
+            results.append(
+                {
+                    "type": "task",
+                    "id": task.id,
+                    "title": task.title,
+                    "status": task.status,
+                }
+            )
 
         # 문서 검색
         documents = (
@@ -346,12 +348,14 @@ class MCPService:
             .all()
         )
         for doc in documents:
-            results.append({
-                "type": "document",
-                "id": doc.id,
-                "title": doc.title,
-                "doc_type": doc.type,
-            })
+            results.append(
+                {
+                    "type": "document",
+                    "id": doc.id,
+                    "title": doc.title,
+                    "doc_type": doc.type,
+                }
+            )
 
         return {
             "uri": f"search:///code?query={query}",
@@ -386,11 +390,7 @@ class MCPService:
                 "count": len(tasks),
             }
         elif resource_type == "documents":
-            documents = (
-                self.db.query(models.Document)
-                .filter(models.Document.project_id == project_id)
-                .all()
-            )
+            documents = self.db.query(models.Document).filter(models.Document.project_id == project_id).all()
             return {
                 "uri": "project://documents",
                 "kind": "documents",
@@ -433,14 +433,14 @@ class MCPService:
                 )
                 .count()
             )
-            
+
             result.append(
-            MCPProjectStatusItem(
-                id=str(project.id),
-                name=project.title,  # Project 모델의 title 필드 사용
-                mcp_status=self._resolve_project_status(project.mcp_connections),
+                MCPProjectStatusItem(
+                    id=str(project.id),
+                    name=project.title,  # Project 모델의 title 필드 사용
+                    mcp_status=self._resolve_project_status(project.mcp_connections),
                     has_active_session=active_sessions_count > 0,
-            )
+                )
             )
         return result
 
@@ -992,7 +992,7 @@ class MCPService:
         # 실제로는 ai_module의 userstory_chain을 사용할 수 있음
         stories = [
             f"사용자는 {prd_content[:50]}... 기능을 사용할 수 있어야 합니다.",
-            f"사용자는 프로젝트의 주요 기능을 이해하고 활용할 수 있어야 합니다.",
+            "사용자는 프로젝트의 주요 기능을 이해하고 활용할 수 있어야 합니다.",
         ]
 
         return {
@@ -1004,22 +1004,21 @@ class MCPService:
     def _execute_sync_tasks(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
         """태스크 동기화 tool 실행."""
         tasks = (
-            self.db.query(models.Task)
-            .filter(models.Task.project_id == project_id)
-            .order_by(models.Task.updated_at.desc())
-            .all()
+            self.db.query(models.Task).filter(models.Task.project_id == project_id).order_by(models.Task.updated_at.desc()).all()
         )
 
         task_list = []
         for task in tasks:
-            task_list.append({
-                "id": task.id,
-                "title": task.title,
-                "status": task.status,
-                "type": task.type,
-                "priority": task.priority,
-                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
-            })
+            task_list.append(
+                {
+                    "id": task.id,
+                    "title": task.title,
+                    "status": task.status,
+                    "type": task.type,
+                    "priority": task.priority,
+                    "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+                }
+            )
 
         return {
             "synced": True,
@@ -1030,20 +1029,18 @@ class MCPService:
     def _execute_summarize_requirements(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
         """요구사항 요약 tool 실행."""
         # 프로젝트의 모든 문서 가져오기
-        documents = (
-            self.db.query(models.Document)
-            .filter(models.Document.project_id == project_id)
-            .all()
-        )
+        documents = self.db.query(models.Document).filter(models.Document.project_id == project_id).all()
 
         summary_parts = []
         for doc in documents:
             content_preview = (doc.content_md or "")[:200] if doc.content_md else ""
-            summary_parts.append({
-                "type": doc.type,
-                "title": doc.title,
-                "preview": content_preview,
-            })
+            summary_parts.append(
+                {
+                    "type": doc.type,
+                    "title": doc.title,
+                    "preview": content_preview,
+                }
+            )
 
         return {
             "summary": f"프로젝트에는 {len(documents)}개의 문서가 있습니다.",

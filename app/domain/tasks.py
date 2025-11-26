@@ -11,13 +11,14 @@ from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
+from app.core.config import settings
 from app.db.models import Document, MCPConnection, MCPRun, MCPSession, Project, Task
 from app.domain.mcp import MCPService
 from app.schemas.mcp import MCPConnectionCreate, MCPRunCreate, MCPSessionCreate
 from app.schemas.project import PaginationParams
 from app.schemas.task import (
-    StartDevelopmentRequest,
     StartDevelopmentCommandResponse,
+    StartDevelopmentRequest,
     StartDevelopmentResponse,
     TaskCreate,
     TaskDeleteResponse,
@@ -27,7 +28,6 @@ from app.schemas.task import (
     TaskResponse,
     TaskUpdate,
 )
-from app.core.config import settings
 
 ############################ 서비스 정의 ############################
 
@@ -146,9 +146,7 @@ def delete_task_service(task_id: int, db: Session) -> TaskDeleteResponse:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
-def start_development_service(
-    task_id: int, request: StartDevelopmentRequest, db: Session
-) -> StartDevelopmentResponse:
+def start_development_service(task_id: int, request: StartDevelopmentRequest, db: Session) -> StartDevelopmentResponse:
     """Start Development 서비스 - vooster.ai 스타일 플로우"""
     try:
         context = _collect_start_development_context(task_id, db)
@@ -251,12 +249,7 @@ def _collect_start_development_context(task_id: int, db: Session) -> StartDevelo
     if not project:
         raise HTTPException(status_code=404, detail=f"Project with ID {task.project_id} not found")
 
-    documents = (
-        db.query(Document)
-        .filter(Document.project_id == project.id)
-        .order_by(Document.updated_at.desc())
-        .all()
-    )
+    documents = db.query(Document).filter(Document.project_id == project.id).order_by(Document.updated_at.desc()).all()
     prd_doc = next((doc for doc in documents if doc.type == "PRD"), None)
     srs_doc = next((doc for doc in documents if doc.type == "SRS"), None)
     user_story_docs = [doc for doc in documents if doc.type == "USER_STORY"]
@@ -294,9 +287,7 @@ def _ensure_active_connection(project_id: int, provider_id: str, mcp_service: MC
     )
 
     if not connection:
-        connection_data = mcp_service.create_connection(
-            MCPConnectionCreate(provider_id=provider_id, project_id=str(project_id))
-        )
+        connection_data = mcp_service.create_connection(MCPConnectionCreate(provider_id=provider_id, project_id=str(project_id)))
         connection_id = connection_data.connection_id
         mcp_service.activate_connection(connection_id)
         return connection_id
@@ -391,12 +382,7 @@ def _extract_run_summary(result: dict[str, Any] | None) -> str | None:
     if not result:
         return None
     if isinstance(result, dict):
-        return (
-            result.get("summary")
-            or result.get("outputText")
-            or result.get("output_text")
-            or result.get("message")
-        )
+        return result.get("summary") or result.get("outputText") or result.get("output_text") or result.get("message")
     return None
 
 
@@ -414,13 +400,7 @@ def _summarize_recent_run(run: MCPRun) -> str:
     except json.JSONDecodeError:
         payload = {}
 
-    output = (
-        payload.get("summary")
-        or payload.get("outputText")
-        or payload.get("output_text")
-        or payload.get("message")
-        or ""
-    )
+    output = payload.get("summary") or payload.get("outputText") or payload.get("output_text") or payload.get("message") or ""
     output_preview = output[:140] + ("..." if len(output) > 140 else "")
     timestamp = run.created_at.isoformat() if isinstance(run.created_at, datetime) else ""
     return f"- [{timestamp}] status={run.status} :: {output_preview}"

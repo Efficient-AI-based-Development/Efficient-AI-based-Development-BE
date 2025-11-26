@@ -41,10 +41,11 @@ app.include_router(v1_router, prefix=settings.api_prefix)
 if settings.debug:
     from app.db.models import User
     from app.domain.auth import get_current_user
-    
+
     def fake_user():
         # DB에서 첫 번째 사용자를 찾거나, 없으면 생성
         from app.db.database import SessionLocal
+
         db = SessionLocal()
         try:
             user = db.query(User).first()
@@ -62,7 +63,7 @@ if settings.debug:
             return user
         finally:
             db.close()
-    
+
     app.dependency_overrides[get_current_user] = fake_user
 
 
