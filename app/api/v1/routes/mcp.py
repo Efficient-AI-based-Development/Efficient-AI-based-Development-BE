@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.domain.auth import get_current_user
 from app.domain.mcp import MCPService
 from app.schemas.mcp import (
     MCPConnectionCloseResponse,
@@ -27,7 +28,7 @@ from app.schemas.mcp import (
     MCPToolListResponse,
 )
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[Depends(get_current_user)])
 
 
 def _service(db: Session) -> MCPService:

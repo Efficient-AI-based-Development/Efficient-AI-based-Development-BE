@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.domain.auth import get_current_user
 from app.domain.tasks import (
     create_task_service,
     delete_task_service,
@@ -15,9 +16,9 @@ from app.domain.tasks import (
     update_task_service,
 )
 from app.schemas.task import (
+    StartDevelopmentCommandResponse,
     StartDevelopmentRequest,
     StartDevelopmentResponse,
-    StartDevelopmentCommandResponse,
     TaskCreate,
     TaskDeleteResponse,
     TaskDetailResponse,
@@ -26,7 +27,7 @@ from app.schemas.task import (
     TaskUpdate,
 )
 
-router = APIRouter(tags=["tasks"], dependencies=[Depends(get_db)])
+router = APIRouter(tags=["tasks"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/tasks/insights", response_model=TaskInsightResponse)
@@ -178,7 +179,10 @@ def get_start_development_command(task_id: int, provider_id: str | None = Query(
     예시 응답:
     ```json
     {
-      "command": "curl -s -X POST \"https://api.example.com/api/v1/tasks/3/start-development\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer <API_TOKEN>\" -d '{\"providerId\":\"claude\",\"options\":{\"mode\":\"impl\",\"temperature\":0.2}}'",
+      "command": "curl -s -X POST \"https://api.example.com/api/v1/tasks/3/start-development\"
+      -H \"Content-Type: application/json\" -H \"Authorization: Bearer <API_TOKEN>\"
+      -d '{\"providerId\":\"claude\",\"options\":{\"mode\":\"impl\",\"temperature\":0.2}}'",
+
       "providerId": "claude",
       "taskId": 3,
       "projectId": 41,
