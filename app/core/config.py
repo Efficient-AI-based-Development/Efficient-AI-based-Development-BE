@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     LLM_MODEL_PM: str = "solar-pro2"
     LLM_MODEL_TASK_AI: str = "solar-pro2"
 
+    ENV: str = "dev"
+
     @property
     def get_database_url(self) -> str:
         """데이터베이스 연결 URL을 반환합니다.
