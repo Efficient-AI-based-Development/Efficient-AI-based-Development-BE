@@ -70,8 +70,7 @@ async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, c
     else:
         content = attached_info.content + request.content_md
 
-    if request.file_type != FileType.project:
-        await SESSIONS[resp.chat_id].queue_in.put(content)
+    await SESSIONS[resp.chat_id].queue_in.put(content)
     print(content)
     return resp
 
@@ -321,7 +320,10 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                 prompt = build_prompt(session_id, user_message, db)
                 file_type_local = station.file_type
                 if has_first:
-                    if file_type_local == "PRD":
+                    if file_type_local == "PROJECT":
+                        doc = ""
+                        msg = "프로젝트 생성이 완료되었습니다."
+                    elif file_type_local == "PRD":
                         answer = await generate_prd_endpoint(prompt)
                         data = answer.model_dump()
                         doc = data.get("prd_document")
@@ -342,11 +344,14 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         answer = await generate_tasklist_endpoint("필요한 상위 문서의 내용은 user의 prompt에 넣었습니다", prompt)
                         data = answer.model_dump()
                         doc = data.get("tasks")
-                        msg = data.get("message")
+                        msg = "테스크 생성이 완료되었습니다."
 
                     has_first = False
                 else:
-                    if file_type_local == "PRD":
+                    if file_type_local == "PROJECT":
+                        doc = ""
+                        msg = "프로젝트 생성이 완료되었습니다."
+                    elif file_type_local == "PRD":
                         answer = await prd_chat(doc, prompt)
                         data = answer.model_dump()
                         doc = data.get("prd_document")
@@ -367,7 +372,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         answer = await generate_tasklist_endpoint(task_content_md, prompt)
                         data = answer.model_dump()
                         doc = data.get("tasks")
-                        msg = data.get("message")
+                        msg = "테스크 생성이 완료되었습니다."
 
                 station.last_doc = doc
 
@@ -624,14 +629,10 @@ def create_chat_session_with_message_service(
     # cf) Project -> Project, userstory -> project, prd, userstory 내용 등록
     result = attached_info_to_chat(user_id, chat_session.id, request, file, file_type, db)
 
-    # 사용자 입력 메시지 저장
-    content = ""
-    # 기존 task존재, task 추가하는 경우
-    if result == 0:
-        content = user_message
-
-    else:
-        content = (
+    system_content = db.query(ChatMessage).filter(ChatMessage.session_id == chat_session.id).one_or_none()
+    # result 0 : task제외 나머지 문서 생성 / result 2: Task 초안 생성 / result 1: Task 추가 생성
+    if result != 0:
+        system_content.content += (
             "description을 작성할때 Markdown형식으로 구체적으로 작성해야합니다.\n"
             "======== 예시 ========="
             "## 요구사항\n"
@@ -648,17 +649,12 @@ def create_chat_session_with_message_service(
             "========== 예시 종료 ===========\n\n"
         )
         if result == 1:
-            content = (
-                user_message
-                + content
-                + (
-                    "PRD, USER_STORY, SRS, TASK 문서를 토대로 user_input에 따라 추가적인 TASK를 생성하려고 합니다."
-                    "이때 기존의 TASK는 출력하지 않고 추가로 작성된 TASK만 출력해주세요."
-                    "출력되는 TASK들의 제목도 작성해야합니다"
-                )
+            system_content.content += (
+                "PRD, USER_STORY, SRS, TASK 문서를 토대로 user_input에 따라 추가적인 TASK를 생성하려고 합니다."
+                "이때 기존의 TASK는 출력하지 않고 추가로 작성된 TASK만 출력해주세요."
+                "출력되는 TASK들의 제목도 작성해야합니다"
             )
-
-    db.add(ChatMessage(session_id=chat_session.id, role="user", content=content, user_id=user_id))
+    db.add(ChatMessage(session_id=chat_session.id, role="user", content=user_message, user_id=user_id))
     db.commit()
 
     # 파일 프로젝트 새로 생성하는 경우 때문에 작성
@@ -916,7 +912,10 @@ def check_file_exist_repo(user_id: str, request: ChatSessionCreateRequest, db: S
 def create_file_repo(user_id: str, request: ChatSessionCreateRequest, db: Session) -> tuple[Any, str]:
 
     if request.file_type is FileType.project:
-        data = json.loads(request.content_md)
+        try:
+            data = json.loads(request.content_md)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="content_md는 유효한 JSON 문자열이어야 합니다.")
         title = data.get("title", "New Project")
         file = Project(
             title=title,
