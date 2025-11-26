@@ -93,21 +93,38 @@ class MCPService:
     # ------------------------------------------------------------------
     def create_session(self, payload: MCPSessionCreate) -> MCPSessionData:
         """MCP 세션 생성."""
-        connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
-        connection = self._get_connection(connection_id)
+        try:
+            connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
+        except ValidationError as exc:
+            raise ValidationError(f"연결 ID 형식이 올바르지 않습니다: {payload.connection_id}. {exc.message}") from exc
+        
+        try:
+            connection = self._get_connection(connection_id)
+        except NotFoundError as exc:
+            raise ValidationError(f"연결을 찾을 수 없습니다: {payload.connection_id}") from exc
+        
         if connection.status not in {"connected", "active"}:
-            raise ValidationError("활성화된 MCP 연결에서만 세션을 시작할 수 있습니다.")
+            raise ValidationError(
+                f"활성화된 MCP 연결에서만 세션을 시작할 수 있습니다. "
+                f"현재 연결 상태: {connection.status}. "
+                f"연결을 활성화하려면 POST /api/v1/mcp/connections/{payload.connection_id}/activate 를 호출하세요."
+            )
 
-        session = models.MCPSession(
-            connection_id=connection.id,
-            status="ready",
-            context=self._dump_json({}),
-            metadata_json=self._dump_json(payload.metadata),
-        )
-        self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
-        return self._to_session_data(session)
+        try:
+            session = models.MCPSession(
+                connection_id=connection.id,
+                project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
+                status="ready",
+                context=self._dump_json({}),
+                metadata_json=self._dump_json(payload.metadata),
+            )
+            self.db.add(session)
+            self.db.commit()
+            self.db.refresh(session)
+            return self._to_session_data(session)
+        except Exception as exc:
+            self.db.rollback()
+            raise ValidationError(f"세션 생성 중 오류가 발생했습니다: {str(exc)}") from exc
 
     def list_sessions(self, connection_identifier: str | None = None) -> list[MCPSessionData]:
         """MCP 세션 목록 조회."""
@@ -250,6 +267,146 @@ class MCPService:
         resources = self._RESOURCE_REGISTRY.get(connection_type, [])
         return [MCPResourceItem(**resource) for resource in resources]
 
+    def read_resource(self, external_session_id: str, uri: str) -> dict[str, Any]:
+        """리소스 읽기."""
+        session_id = self._decode_connection_id(external_session_id, prefix="ss")
+        session = self._get_session(session_id)
+        project_id = session.connection.project_id
+
+        if uri.startswith("file:///"):
+            # 파일 리소스 읽기
+            file_path = uri.replace("file:///", "")
+            return self._read_file_resource(file_path)
+        elif uri.startswith("search:///"):
+            # 검색 리소스
+            query = uri.replace("search:///", "").split("?query=")
+            search_query = query[1] if len(query) > 1 else ""
+            return self._read_search_resource(search_query, project_id)
+        elif uri.startswith("project://"):
+            # 프로젝트 리소스
+            resource_type = uri.replace("project://", "")
+            return self._read_project_resource(resource_type, project_id)
+        else:
+            raise ValidationError(f"지원하지 않는 리소스 URI 형식: {uri}")
+
+    def _read_file_resource(self, file_path: str) -> dict[str, Any]:
+        """파일 리소스 읽기."""
+        # 실제 파일 시스템에서 읽기 (예: README.md)
+        from pathlib import Path
+
+        # 프로젝트 루트 기준으로 파일 읽기
+        project_root = Path.cwd()
+        target_file = project_root / file_path.lstrip("/")
+
+        if not target_file.exists():
+            raise NotFoundError("File", file_path)
+
+        try:
+            content = target_file.read_text(encoding="utf-8")
+            return {
+                "uri": f"file:///{file_path}",
+                "kind": "file",
+                "content": content,
+                "size": len(content),
+            }
+        except Exception as exc:
+            raise ValidationError(f"파일 읽기 실패: {str(exc)}") from exc
+
+    def _read_search_resource(self, query: str, project_id: int) -> dict[str, Any]:
+        """검색 리소스 읽기."""
+        # 태스크나 문서에서 검색
+        results = []
+
+        # 태스크 검색
+        tasks = (
+            self.db.query(models.Task)
+            .filter(
+                models.Task.project_id == project_id,
+                models.Task.title.ilike(f"%{query}%"),
+            )
+            .limit(10)
+            .all()
+        )
+        for task in tasks:
+            results.append({
+                "type": "task",
+                "id": task.id,
+                "title": task.title,
+                "status": task.status,
+            })
+
+        # 문서 검색
+        documents = (
+            self.db.query(models.Document)
+            .filter(
+                models.Document.project_id == project_id,
+                models.Document.title.ilike(f"%{query}%"),
+            )
+            .limit(10)
+            .all()
+        )
+        for doc in documents:
+            results.append({
+                "type": "document",
+                "id": doc.id,
+                "title": doc.title,
+                "doc_type": doc.type,
+            })
+
+        return {
+            "uri": f"search:///code?query={query}",
+            "kind": "search",
+            "query": query,
+            "results": results,
+            "count": len(results),
+        }
+
+    def _read_project_resource(self, resource_type: str, project_id: int) -> dict[str, Any]:
+        """프로젝트 리소스 읽기."""
+        if resource_type == "tasks":
+            tasks = (
+                self.db.query(models.Task)
+                .filter(models.Task.project_id == project_id)
+                .order_by(models.Task.updated_at.desc())
+                .all()
+            )
+            return {
+                "uri": "project://tasks",
+                "kind": "tasks",
+                "tasks": [
+                    {
+                        "id": task.id,
+                        "title": task.title,
+                        "status": task.status,
+                        "type": task.type,
+                        "priority": task.priority,
+                    }
+                    for task in tasks
+                ],
+                "count": len(tasks),
+            }
+        elif resource_type == "documents":
+            documents = (
+                self.db.query(models.Document)
+                .filter(models.Document.project_id == project_id)
+                .all()
+            )
+            return {
+                "uri": "project://documents",
+                "kind": "documents",
+                "documents": [
+                    {
+                        "id": doc.id,
+                        "title": doc.title,
+                        "type": doc.type,
+                    }
+                    for doc in documents
+                ],
+                "count": len(documents),
+            }
+        else:
+            raise ValidationError(f"알 수 없는 프로젝트 리소스 타입: {resource_type}")
+
     def list_prompts(self, external_session_id: str) -> list[MCPPromptItem]:
         """세션별 프롬프트 목록 조회."""
         session_id = self._decode_connection_id(external_session_id, prefix="ss")
@@ -264,14 +421,28 @@ class MCPService:
     def list_project_statuses(self) -> list[MCPProjectStatusItem]:
         """프로젝트별 MCP 상태 요약."""
         projects = self.db.query(models.Project).all()
-        return [
+        result = []
+        for project in projects:
+            # 활성 세션 개수 확인
+            active_sessions_count = (
+                self.db.query(models.MCPSession)
+                .join(models.MCPConnection)
+                .filter(
+                    models.MCPConnection.project_id == project.id,
+                    models.MCPSession.status.in_(["ready", "active"]),
+                )
+                .count()
+            )
+            
+            result.append(
             MCPProjectStatusItem(
                 id=str(project.id),
                 name=project.title,  # Project 모델의 title 필드 사용
                 mcp_status=self._resolve_project_status(project.mcp_connections),
+                    has_active_session=active_sessions_count > 0,
             )
-            for project in projects
-        ]
+            )
+        return result
 
     # ------------------------------------------------------------------
     # Run
@@ -285,6 +456,7 @@ class MCPService:
 
         run = models.MCPRun(
             session_id=session.id,
+            task_id=payload.task_id,
             tool_name=payload.tool_id,
             prompt_name=payload.prompt_id,
             mode=payload.mode,
@@ -382,10 +554,9 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. 에이전트에서 실행",
-                            description="에이전트 터미널(예: Cursor 커맨드 팔레트)에서 아래 명령을 실행하면 작업을 진행할 수 있습니다. 자연어 명령어도 지원합니다.",
+                            description="태스크에서의 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
                                 MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
-                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
                         ),
@@ -412,10 +583,9 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. 명령 실행하기",
-                            description="에이전트에서 아래 명령을 실행하거나 버튼을 눌러 작업을 시작합니다. 자연어 명령어도 지원합니다.",
+                            description="태스크에서의 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
                                 MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
-                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
                         ),
@@ -453,10 +623,9 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. 에이전트 실행",
-                            description="Claude Code에서 MCP 프로젝트를 실행하면 연결됩니다. 자연어 명령어도 지원합니다.",
+                            description="태스크에서의 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
                                 MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
-                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
                         ),
@@ -483,10 +652,9 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="작업 실행",
-                            description="명령어를 실행하거나 Claude Code에서 MCP 실행 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
+                            description="태스크에서의 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
                                 MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
-                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
                         ),
@@ -523,10 +691,9 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="3. Cursor에서 실행",
-                            description="`Cmd+Shift+P` → `Open MCP Project` 후 아래 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
+                            description="태스크에서의 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
                                 MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
-                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
                         ),
@@ -553,10 +720,9 @@ class MCPService:
                         ),
                         MCPGuideStep(
                             title="Cursor에서 연결 확인",
-                            description="Cursor Command Palette에서 MCP 프로젝트를 선택하면 연결됩니다. 자연어 명령어도 지원합니다.",
+                            description="태스크에서의 명령을 실행하거나 UI 버튼을 눌러주세요. 자연어 명령어도 지원합니다.",
                             commands=[
                                 MCPGuideCommand(text='fastmcp run "프로젝트 <PROJECT_ID>의 다음 작업 진행"'),
-                                MCPGuideCommand(text="# 또는 직접 프롬프트"),
                                 MCPGuideCommand(text='fastmcp run "이번 sprint 요약해줘"'),
                             ],
                         ),
@@ -626,6 +792,7 @@ class MCPService:
         return MCPSessionData(
             session_id=self._encode_id("ss", session.id),
             connection_id=self._encode_id("cn", session.connection_id),
+            project_id=str(session.project_id),
             status=session.status,
             created_at=session.created_at,
             metadata=self._load_json(session.metadata_json),
@@ -635,6 +802,7 @@ class MCPService:
         return MCPRunData(
             run_id=self._encode_id("run", run.id),
             session_id=self._encode_id("ss", run.session_id),
+            task_id=run.task_id,
             mode=run.mode,
             status=self._map_run_status(run.status),
             created_at=run.created_at,
@@ -651,6 +819,7 @@ class MCPService:
         )
         return MCPRunStatusData(
             run_id=self._encode_id("run", run.id),
+            task_id=run.task_id,
             status=self._map_run_status(run.status),
             result=result_payload if isinstance(result_payload, dict) else None,
             message=run.message,
@@ -682,8 +851,25 @@ class MCPService:
 
         connection = session.connection
         provider_type = connection.connection_type
+        mode = payload.mode or "chat"
 
-        if provider_type == "chatgpt":
+        # Tool 모드는 실제 tool 실행 로직으로 처리
+        if mode == "tool" and payload.tool_id:
+            try:
+                result_payload = self._execute_tool(
+                    tool_id=payload.tool_id,
+                    input_data=payload.input or {},
+                    session=session,
+                    provider_type=provider_type,
+                )
+                run.result = self._dump_json(result_payload)
+                run.status = "succeeded"
+                run.message = f"Tool '{payload.tool_id}' 실행이 완료되었습니다."
+            except Exception as exc:
+                run.result = self._dump_json({"error": str(exc)})
+                run.status = "failed"
+                run.message = f"Tool 실행 실패: {str(exc)}"
+        elif provider_type == "chatgpt":
             if not settings.fastmcp_base_url or not settings.fastmcp_token:
                 raise ValidationError("ChatGPT 실행을 위해 FASTMCP_BASE_URL과 FASTMCP_TOKEN 환경 변수를 설정하세요.")
             provider = ChatGPTProvider(
@@ -757,6 +943,7 @@ class MCPService:
                 messages = [{"role": "system", "content": system_prompt}, *messages]
             arguments["messages"] = messages
         elif mode == "tool":
+            # Tool 모드는 실제 tool 실행 로직으로 처리
             arguments["prompt"] = self._format_tool_prompt(payload.tool_id, payload.input)
         elif mode == "prompt":
             arguments["prompt"] = self._format_prompt_payload(payload.prompt_id, payload.input)
@@ -764,6 +951,105 @@ class MCPService:
             raise ValidationError("지원하지 않는 실행 모드입니다.")
 
         return arguments
+
+    def _execute_tool(
+        self,
+        tool_id: str,
+        input_data: dict[str, Any],
+        session: models.MCPSession,
+        provider_type: str,
+    ) -> dict[str, Any]:
+        """실제 tool 실행 로직."""
+        project_id = session.connection.project_id
+
+        if tool_id == "gen_user_story":
+            return self._execute_gen_user_story(input_data, project_id)
+        elif tool_id == "sync_tasks":
+            return self._execute_sync_tasks(input_data, project_id)
+        elif tool_id == "summarize_requirements":
+            return self._execute_summarize_requirements(input_data, project_id)
+        else:
+            raise ValidationError(f"알 수 없는 tool: {tool_id}")
+
+    def _execute_gen_user_story(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
+        """User Story 생성 tool 실행."""
+        # PRD 문서 가져오기
+        prd_doc = (
+            self.db.query(models.Document)
+            .filter(
+                models.Document.project_id == project_id,
+                models.Document.type == "PRD",
+            )
+            .first()
+        )
+
+        if not prd_doc:
+            raise ValidationError("프로젝트에 PRD 문서가 없습니다.")
+
+        prd_content = prd_doc.content_md or ""
+
+        # AI를 사용하여 User Story 생성 (간단한 버전)
+        # 실제로는 ai_module의 userstory_chain을 사용할 수 있음
+        stories = [
+            f"사용자는 {prd_content[:50]}... 기능을 사용할 수 있어야 합니다.",
+            f"사용자는 프로젝트의 주요 기능을 이해하고 활용할 수 있어야 합니다.",
+        ]
+
+        return {
+            "stories": stories,
+            "prd_title": prd_doc.title,
+            "generated_count": len(stories),
+        }
+
+    def _execute_sync_tasks(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
+        """태스크 동기화 tool 실행."""
+        tasks = (
+            self.db.query(models.Task)
+            .filter(models.Task.project_id == project_id)
+            .order_by(models.Task.updated_at.desc())
+            .all()
+        )
+
+        task_list = []
+        for task in tasks:
+            task_list.append({
+                "id": task.id,
+                "title": task.title,
+                "status": task.status,
+                "type": task.type,
+                "priority": task.priority,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            })
+
+        return {
+            "synced": True,
+            "task_count": len(task_list),
+            "tasks": task_list,
+        }
+
+    def _execute_summarize_requirements(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
+        """요구사항 요약 tool 실행."""
+        # 프로젝트의 모든 문서 가져오기
+        documents = (
+            self.db.query(models.Document)
+            .filter(models.Document.project_id == project_id)
+            .all()
+        )
+
+        summary_parts = []
+        for doc in documents:
+            content_preview = (doc.content_md or "")[:200] if doc.content_md else ""
+            summary_parts.append({
+                "type": doc.type,
+                "title": doc.title,
+                "preview": content_preview,
+            })
+
+        return {
+            "summary": f"프로젝트에는 {len(documents)}개의 문서가 있습니다.",
+            "documents": summary_parts,
+            "total_documents": len(documents),
+        }
 
     def _format_tool_prompt(
         self,

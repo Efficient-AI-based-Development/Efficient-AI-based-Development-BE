@@ -14,11 +14,10 @@ class TaskBase(BaseModel):
     description: str | None = Field(None, description="태스크 설명")
     description_md: str | None = Field(None, description="태스크 설명 마크다운")
     type: str = Field(
-        default="feat",
+        default="dev",
         description="태스크 타입",
-        examples=["feat", "bug", "docs", "design", "refactor"],
+        examples=["docs", "design", "dev"],
     )
-    source: str = Field(default="USER", description="태스크 생성 소스", examples=["MCP", "USER", "AI"])
     status: str = Field(
         default="todo",
         description="태스크 상태",
@@ -27,6 +26,16 @@ class TaskBase(BaseModel):
     priority: int = Field(default=5, description="우선순위 (0-10)", ge=0, le=10)
     tags: list[str] | None = Field(None, description="태그 목록")
     due_at: datetime | None = Field(None, description="마감일")
+
+
+class TaskInsightRequest(BaseModel):
+    project_id: int
+
+
+class TaskInsightResponse(BaseModel):
+    task_completed_probability: float
+    task_last_updated: datetime | None
+    QA_test: int | None
 
 
 class TaskCreate(TaskBase):
@@ -85,7 +94,6 @@ class TaskResponse(TaskBase):
             "description": obj.description,
             "description_md": obj.description_md,
             "type": obj.type,
-            "source": obj.source,
             "status": obj.status,
             "priority": obj.priority,
             "due_at": obj.due_at,
@@ -116,25 +124,14 @@ class TaskResponse(TaskBase):
         return cls(**data)
 
 
-class TaskListMeta(BaseModel):
-    """태스크 목록 메타 정보"""
-
-    page: int = Field(..., description="현재 페이지")
-    page_size: int = Field(..., description="페이지 크기")
-    total: int = Field(..., description="전체 태스크 수")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
 class TaskListResponse(BaseModel):
     """태스크 목록 응답 스키마
 
     GET /api/v1/projects/{projectId}/tasks 응답 시 사용
-    API 스펙에 맞게 data/meta 형식으로 래핑
+    페이지네이션 없이 전체 목록 반환
     """
 
     data: list[TaskResponse] = Field(..., description="태스크 목록")
-    meta: TaskListMeta = Field(..., description="페이지네이션 메타 정보")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -185,3 +182,40 @@ class TaskLinkResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StartDevelopmentRequest(BaseModel):
+    """Start Development 요청 스키마"""
+
+    provider_id: str | None = Field(
+        None,
+        description="MCP 제공자 ID (chatgpt, claude, cursor). 없으면 프로젝트 기본값 사용",
+        examples=["chatgpt"],
+    )
+    options: dict[str, Any] | None = Field(
+        None,
+        description="실행 옵션 (mode, temperature 등)",
+        examples=[{"mode": "impl", "temperature": 0.2}],
+    )
+
+
+class StartDevelopmentResponse(BaseModel):
+    """Start Development 응답 스키마"""
+
+    session_id: str = Field(..., description="생성된 세션 ID", examples=["ss_0001"])
+    run_id: str = Field(..., description="생성된 실행 ID", examples=["run_0001"])
+    status: str = Field(..., description="실행 상태", examples=["running", "succeeded"])
+    preview: str | None = Field(None, description="미리보기 메시지")
+    summary: str | None = Field(None, description="실행 결과 요약")
+
+
+class StartDevelopmentCommandResponse(BaseModel):
+    """Start Development CLI 명령어 응답"""
+
+    command: str = Field(..., description="터미널에 붙여넣어 실행할 curl 명령어")
+    provider_id: str = Field(..., alias="providerId", description="MCP 제공자", examples=["claude"])
+    task_id: int = Field(..., alias="taskId", description="태스크 ID")
+    project_id: int = Field(..., alias="projectId", description="프로젝트 ID")
+    note: str | None = Field(None, description="명령 사용 시 참고할 메모")
+
+    model_config = ConfigDict(populate_by_name=True)

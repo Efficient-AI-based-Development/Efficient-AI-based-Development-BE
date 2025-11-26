@@ -1,0 +1,3 @@
+"""Efficient MCP CLI package."""
+
+
