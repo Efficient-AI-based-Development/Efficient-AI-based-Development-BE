@@ -321,7 +321,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                 file_type_local = station.file_type
                 if has_first:
                     if file_type_local == "PROJECT":
-                        doc = ""
+                        doc = user_message
                         msg = "프로젝트 생성이 완료되었습니다."
                     elif file_type_local == "PRD":
                         answer = await generate_prd_endpoint(prompt)
@@ -349,7 +349,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                     has_first = False
                 else:
                     if file_type_local == "PROJECT":
-                        doc = ""
+                        doc = user_message
                         msg = "프로젝트 생성이 완료되었습니다."
                     elif file_type_local == "PRD":
                         answer = await prd_chat(doc, prompt)
