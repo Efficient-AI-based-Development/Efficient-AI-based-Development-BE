@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy.orm import Session
@@ -54,6 +54,7 @@ refresh_scheme = HTTPBearer(auto_error=True)
 
 @router.post("/refresh", response_model=TokenPair)
 def refresh_token(
+    response: Response,
     credentials: HTTPAuthorizationCredentials = Depends(refresh_scheme),
     db: Session = Depends(get_db),
 ):
@@ -80,6 +81,15 @@ def refresh_token(
     user_id = user.user_id
     access_jwt = create_access_token(user_id)
     refresh_jwt = create_refresh_token(user_id)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_jwt,
+        httponly=True,
+        secure=True,  # HTTPS에서만
+        samesite="none",  # cross-site 허용 (프론트 도메인 다를 때 필수)
+        path="/",
+    )
 
     return TokenPair(access_token=access_jwt, refresh_token=refresh_jwt)
 
