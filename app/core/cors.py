@@ -2,8 +2,6 @@
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-
 
 def setup_cors(app) -> None:
     """Configure CORS middleware.
@@ -18,11 +16,12 @@ def setup_cors(app) -> None:
     - 프로덕션에서는 특정 도메인만 허용해야 함
     - 현재는 개발 편의를 위해 모든 출처 허용
     """
-    origins = ["http://localhost:5173"] if settings.ENV == "dev" else ["https://atrina.vercel.app"]
+    origins = ["http://localhost:5173", "https://atrina.vercel.app"]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )

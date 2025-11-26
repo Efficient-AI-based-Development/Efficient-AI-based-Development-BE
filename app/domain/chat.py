@@ -259,7 +259,14 @@ async def stream_service(chat_session_id: int, request: Request, db: Session):
         finally:
             pass
 
-    return EventSourceResponse(event_gen(), ping=15000)
+    return EventSourceResponse(
+        event_gen(),
+        ping=15000,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ---------------------- AI 작동 --------------------------------
