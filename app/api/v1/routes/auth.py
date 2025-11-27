@@ -86,7 +86,7 @@ def refresh_token(
         key="refresh_token",
         value=refresh_jwt,
         httponly=True,
-        secure=(settings.ENV == "prod"),
+        secure=True,
         samesite="none",  # cross-site 허용 (프론트 도메인 다를 때 필수)
         max_age=60 * 60 * 24 * 7,
         path="/",
@@ -116,7 +116,7 @@ async def google_exchange(request: GoogleCodeRequest, response: Response, db: Se
         key="refresh_token",
         value=refresh_jwt,
         httponly=True,
-        secure=(settings.ENV == "prod"),  # dev에서는 False, prod에서만 True
+        secure=True,  # dev에서는 False, prod에서만 True
         samesite="none",
         max_age=60 * 60 * 24 * 7,
         path="/",
