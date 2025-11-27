@@ -14,6 +14,7 @@ from app.domain.mcp.providers import ChatGPTProvider, ClaudeProvider, CursorProv
 from app.schemas.mcp import (
     MCPConnectionCreate,
     MCPConnectionData,
+    MCPConfigFileResponse,
     MCPGuideCommand,
     MCPGuidePlatform,
     MCPGuideResponse,
@@ -26,8 +27,171 @@ from app.schemas.mcp import (
     MCPRunStatusData,
     MCPSessionCreate,
     MCPSessionData,
+    MCPTaskCommandResponse,
     MCPToolItem,
 )
+from app.schemas.task import StartDevelopmentRequest
+
+
+COMMON_TOOLS: list[dict[str, Any]] = [
+    {
+        "toolId": "start_development",
+        "name": "Start Development",
+        "description": "태스크 ID를 받아 PRD/SRS/USER_STORY 문서와 태스크 정보를 수집하여 코드 구현을 시작합니다. 문서와 태스크 컨텍스트를 자동으로 활용합니다.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["taskId"],
+            "properties": {
+                "taskId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "코드 구현을 시작할 태스크 ID",
+                },
+                "providerId": {
+                    "type": "string",
+                    "description": "선택적 provider (chatgpt/claude/cursor)",
+                },
+                "options": {
+                    "type": "object",
+                    "description": "mode, temperature 등 추가 옵션 (선택)",
+                },
+            },
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "taskId": {"type": "integer"},
+                "sessionId": {"type": "string"},
+                "runId": {"type": "string"},
+                "status": {"type": "string"},
+                "preview": {"type": "string"},
+                "summary": {"type": ["string", "null"]},
+                "providerId": {"type": "string"},
+                "context": {
+                    "type": "object",
+                    "description": "수집된 컨텍스트 정보 (태스크, 문서, 프로젝트)",
+                },
+            },
+        },
+    },
+    {
+        "toolId": "generate_code",
+        "name": "Generate Code",
+        "description": "태스크와 관련 문서(PRD/SRS/USER_STORY)를 기반으로 코드를 생성합니다. 기존 코드베이스 구조를 참고하여 구현합니다.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["taskId"],
+            "properties": {
+                "taskId": {
+                    "type": "integer",
+                    "description": "코드를 생성할 태스크 ID",
+                },
+                "filePath": {
+                    "type": "string",
+                    "description": "생성할 파일 경로 (선택, 없으면 자동 결정)",
+                },
+                "options": {
+                    "type": "object",
+                    "description": "생성 옵션 (language, framework 등)",
+                },
+            },
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "taskId": {"type": "integer"},
+                "generatedFiles": {"type": "array", "items": {"type": "string"}},
+                "codePreview": {"type": "string"},
+                "status": {"type": "string"},
+            },
+        },
+    },
+    {
+        "toolId": "review_code",
+        "name": "Code Review",
+        "description": "생성된 코드를 리뷰하고 개선 사항을 제안합니다. 태스크 요구사항과 문서를 기준으로 검토합니다.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["taskId"],
+            "properties": {
+                "taskId": {
+                    "type": "integer",
+                    "description": "리뷰할 태스크 ID",
+                },
+                "filePaths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "리뷰할 파일 경로 목록 (선택, 없으면 태스크 관련 파일 전체)",
+                },
+            },
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "taskId": {"type": "integer"},
+                "reviewedFiles": {"type": "array", "items": {"type": "string"}},
+                "issues": {"type": "array", "items": {"type": "object"}},
+                "suggestions": {"type": "array", "items": {"type": "string"}},
+                "status": {"type": "string"},
+            },
+        },
+    },
+    {
+        "toolId": "sync_tasks",
+        "name": "Sync Task Board",
+        "description": "프로젝트의 최신 태스크 상태를 동기화합니다.",
+        "inputSchema": {"type": "object"},
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "synced": {"type": "boolean"},
+                "task_count": {"type": "integer"},
+                "tasks": {"type": "array", "items": {"type": "object"}},
+            },
+        },
+    },
+]
+
+COMMON_RESOURCES: list[dict[str, Any]] = [
+    {
+        "uri": "project://tasks",
+        "kind": "tasks",
+        "description": "프로젝트 전체 태스크 목록",
+    },
+    {
+        "uri": "project://documents",
+        "kind": "documents",
+        "description": "모든 프로젝트 문서 목록",
+    },
+    {
+        "uri": "project://documents/PRD",
+        "kind": "documents",
+        "description": "최신 PRD 문서",
+    },
+    {
+        "uri": "project://documents/SRS",
+        "kind": "documents",
+        "description": "시스템 요구사항(SRS) 문서",
+    },
+    {
+        "uri": "project://documents/USER_STORY",
+        "kind": "documents",
+        "description": "등록된 사용자 스토리",
+    },
+]
+
+COMMON_PROMPTS: list[dict[str, Any]] = [
+    {
+        "promptId": "start_dev_plan",
+        "name": "개발 플랜 검토",
+        "description": "Start Development 전에 고수준 계획을 정리할 때 사용합니다.",
+    },
+    {
+        "promptId": "risk_review",
+        "name": "리스크 리뷰",
+        "description": "태스크 위험 요소와 대응 전략을 점검합니다.",
+    },
+]
 
 
 class MCPService:
@@ -151,104 +315,18 @@ class MCPService:
     # Catalog
     # ------------------------------------------------------------------
     _TOOL_REGISTRY: dict[str, list[dict[str, Any]]] = {
-        "chatgpt": [
-            {
-                "toolId": "gen_user_story",
-                "name": "User Story Generator",
-                "description": "PRD 문서를 기반으로 사용자 스토리를 생성합니다.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "object",
-                            "properties": {
-                                "prdMd": {"type": "string", "description": "PRD Markdown"},
-                            },
-                        }
-                    },
-                },
-                "outputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "stories": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        }
-                    },
-                },
-            }
-        ],
-        "cursor": [
-            {
-                "toolId": "sync_tasks",
-                "name": "Sync Tasks",
-                "description": "Cursor 프로젝트 태스크를 최신 상태로 동기화합니다.",
-                "inputSchema": {"type": "object"},
-                "outputSchema": {"type": "object"},
-            }
-        ],
-        "claude": [
-            {
-                "toolId": "summarize_requirements",
-                "name": "Requirement Summarizer",
-                "description": "요구사항을 간단히 요약합니다.",
-                "inputSchema": {"type": "object"},
-                "outputSchema": {"type": "object"},
-            }
-        ],
+        provider: [dict(tool) for tool in COMMON_TOOLS]
+        for provider in ("chatgpt", "cursor", "claude")
     }
 
     _RESOURCE_REGISTRY: dict[str, list[dict[str, Any]]] = {
-        "chatgpt": [
-            {
-                "uri": "file:///app/README.md",
-                "kind": "file",
-                "description": "프로젝트 README 파일",
-            },
-            {
-                "uri": "search:///code?query=auth",
-                "kind": "search",
-                "description": "코드베이스 내 인증 관련 검색",
-            },
-        ],
-        "cursor": [
-            {
-                "uri": "project://tasks",
-                "kind": "tasks",
-                "description": "Cursor 태스크 목록",
-            }
-        ],
-        "claude": [
-            {
-                "uri": "knowledge://architecture",
-                "kind": "document",
-                "description": "시스템 아키텍처 문서",
-            }
-        ],
+        provider: [dict(resource) for resource in COMMON_RESOURCES]
+        for provider in ("chatgpt", "cursor", "claude")
     }
 
     _PROMPT_REGISTRY: dict[str, list[dict[str, Any]]] = {
-        "chatgpt": [
-            {
-                "promptId": "fix_tests",
-                "name": "Fix failing tests",
-                "description": "실패하는 테스트를 해결하기 위한 조언을 제공합니다.",
-            }
-        ],
-        "cursor": [
-            {
-                "promptId": "implement_feature",
-                "name": "Implement Feature Prompt",
-                "description": "새로운 기능 구현을 위한 프롬프트",
-            }
-        ],
-        "claude": [
-            {
-                "promptId": "brainstorm_ideas",
-                "name": "Brainstorm Ideas",
-                "description": "새로운 기능 아이디어 브레인스토밍",
-            }
-        ],
+        provider: [dict(prompt) for prompt in COMMON_PROMPTS]
+        for provider in ("chatgpt", "cursor", "claude")
     }
 
     def list_tools(self, external_session_id: str) -> list[MCPToolItem]:
@@ -389,6 +467,7 @@ class MCPService:
             documents = (
                 self.db.query(models.Document)
                 .filter(models.Document.project_id == project_id)
+                .order_by(models.Document.updated_at.desc())
                 .all()
             )
             return {
@@ -399,6 +478,35 @@ class MCPService:
                         "id": doc.id,
                         "title": doc.title,
                         "type": doc.type,
+                        "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+                        "preview": (doc.content_md or "")[:160],
+                    }
+                    for doc in documents
+                ],
+                "count": len(documents),
+            }
+        elif resource_type.startswith("documents/"):
+            _, doc_type_raw = resource_type.split("/", 1)
+            doc_type = doc_type_raw.upper()
+            documents = (
+                self.db.query(models.Document)
+                .filter(
+                    models.Document.project_id == project_id,
+                    models.Document.type == doc_type,
+                )
+                .order_by(models.Document.updated_at.desc())
+                .all()
+            )
+            return {
+                "uri": f"project://documents/{doc_type}",
+                "kind": "documents",
+                "doc_type": doc_type,
+                "documents": [
+                    {
+                        "id": doc.id,
+                        "title": doc.title,
+                        "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+                        "preview": (doc.content_md or "")[:400],
                     }
                     for doc in documents
                 ],
@@ -740,6 +848,160 @@ class MCPService:
         return guide
 
     # ------------------------------------------------------------------
+    # Copy-Paste Ready Config (vooster.ai style)
+    # ------------------------------------------------------------------
+
+    def generate_mcp_config_file(
+        self, project_id: int, provider_id: str, api_token: str, user_os: str = "macOS"
+    ) -> MCPConfigFileResponse:
+        """MCP 설정 파일 (mcp.json) 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
+        project = self._get_project(project_id)
+
+        # 연결이 없으면 생성
+        connection = (
+            self.db.query(models.MCPConnection)
+            .filter(
+                models.MCPConnection.project_id == project_id,
+                models.MCPConnection.connection_type == provider_id,
+            )
+            .first()
+        )
+
+        if not connection:
+            connection_data = self.create_connection(
+                MCPConnectionCreate(provider_id=provider_id, project_id=str(project_id))
+            )
+            connection_id = connection_data.connection_id
+            self.activate_connection(connection_id)
+        else:
+            connection_id = self._encode_id("cn", connection.id)
+            if connection.status != "active":
+                self.activate_connection(connection_id)
+
+        # 백엔드 URL (환경 변수 또는 기본값)
+        backend_url = settings.BACKEND_BASE_URL or "http://localhost:8000"
+
+        # 프로젝트 루트 경로 (사용자가 수정해야 함 - 플레이스홀더 사용)
+        # 실제 배포 시에는 사용자가 프로젝트 루트 경로로 교체해야 함
+        project_root_placeholder = "/path/to/Efficient-AI-based-Development-BE"
+        adapter_path = f"{project_root_placeholder}/mcp_adapter/server.py"
+        python_path = f"{project_root_placeholder}/.venv/bin/python3"
+
+        # OS별 설정 파일 경로
+        if user_os.lower() == "windows":
+            install_path = "%APPDATA%\\Cursor\\User\\globalStorage\\mcp.json"
+            python_path = python_path.replace("/", "\\")
+            adapter_path = adapter_path.replace("/", "\\")
+        else:  # macOS, Linux
+            install_path = "~/Library/Application Support/Cursor/User/globalStorage/mcp.json"
+
+        # mcp.json 파일 내용 생성
+        mcp_config = {
+            "mcpServers": {
+                "atlas-ai": {
+                    "command": python_path,
+                    "args": [adapter_path],
+                    "env": {
+                        "BACKEND_URL": backend_url,
+                        "API_TOKEN": api_token,
+                        "PROJECT_ID": str(project_id),
+                        "CONNECTION_ID": connection_id,
+                    },
+                }
+            }
+        }
+
+        config_content = json.dumps(mcp_config, indent=2, ensure_ascii=False)
+
+        # 설정 방법 안내 (더 친화적으로)
+        instructions = [
+            "1. 아래 설정 파일 내용을 전체 복사하세요",
+            f"2. {install_path} 파일을 열거나 생성하세요",
+            "3. 복사한 내용을 붙여넣고 저장하세요",
+            "4. ⚠️ 중요: Cursor를 완전히 종료하고 다시 시작하세요",
+            "5. Cursor에서 MCP 연결이 활성화되었는지 확인하세요",
+            "",
+            "💡 팁: 프로젝트 루트 경로(/path/to/Efficient-AI-based-Development-BE)를 실제 경로로 수정해야 합니다.",
+        ]
+
+        return MCPConfigFileResponse(
+            config_content=config_content,
+            file_name="mcp.json",
+            install_path=install_path,
+            instructions=instructions,
+        )
+
+    def generate_task_command(
+        self, task_id: int, provider_id: str = "cursor", command_format: str = "vooster"
+    ) -> MCPTaskCommandResponse:
+        """태스크별 MCP 명령어 생성 - Cursor에서 복사-붙여넣기만 하면 됨.
+        
+        Args:
+            task_id: 태스크 ID
+            provider_id: MCP 제공자 (cursor/claude/chatgpt)
+            command_format: 명령어 형식 ("vooster" 또는 "natural")
+                - "vooster": 구조화된 명령어 (예: "atlas-ai를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")
+                - "natural": 자연어 명령어 (예: "AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘")
+        """
+        task = (
+            self.db.query(models.Task)
+            .filter(models.Task.id == task_id)
+            .first()
+        )
+        if not task:
+            raise NotFoundError("Task", str(task_id))
+
+        # 프로젝트 정보 가져오기
+        project = (
+            self.db.query(models.Project)
+            .filter(models.Project.id == task.project_id)
+            .first()
+        )
+
+        # 명령어 형식에 따라 생성
+        if command_format == "vooster":
+            # Vooster.ai 스타일: 구조화된 명령어
+            project_name = project.title if project else f"프로젝트 {task.project_id}"
+            command = f"atlas-ai를 사용해서 {project_name}의 태스크 {task_id} 작업 수행하라"
+            
+            description = (
+                f"위 명령어를 Cursor의 MCP 채팅창에 붙여넣으세요.\n"
+                f"시스템이 자동으로 다음 정보를 수집하여 코드를 생성합니다:\n"
+                f"- 프로젝트: {project_name}\n"
+                f"- 태스크 ID: {task_id}\n"
+                f"- 태스크 제목: {task.title}\n"
+                f"- PRD/SRS/USER_STORY 문서\n"
+                f"- 프로젝트 컨텍스트"
+            )
+        else:
+            # 자연어 스타일 (기본값)
+            if task.description_md:
+                # description_md가 있으면 더 구체적인 명령어
+                command = f"{task.title} 구현해줘. {task.description_md[:100]}..."
+            else:
+                command = f"{task.title} 구현해줘"
+
+            # 프로젝트 정보 포함
+            if project:
+                project_name = project.title[:20] if project.title else f"프로젝트 {task.project_id}"
+                command = f"{project_name}의 {command}"
+
+            description = (
+                f"위 명령어를 Cursor의 MCP 채팅창에 붙여넣으세요.\n"
+                f"시스템이 자동으로 다음 정보를 수집하여 코드를 생성합니다:\n"
+                f"- 태스크 정보: {task.title}\n"
+                f"- PRD/SRS/USER_STORY 문서\n"
+                f"- 프로젝트 컨텍스트"
+            )
+
+        return MCPTaskCommandResponse(
+            command=command,
+            task_id=task_id,
+            task_title=task.title,
+            description=description,
+        )
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
     def _get_project(self, project_id: int) -> models.Project:
@@ -962,43 +1224,336 @@ class MCPService:
         """실제 tool 실행 로직."""
         project_id = session.connection.project_id
 
-        if tool_id == "gen_user_story":
-            return self._execute_gen_user_story(input_data, project_id)
+        if tool_id == "start_development":
+            return self._execute_start_development(input_data, session)
+        elif tool_id == "generate_code":
+            return self._execute_generate_code(input_data, session, project_id)
+        elif tool_id == "review_code":
+            return self._execute_review_code(input_data, session, project_id)
         elif tool_id == "sync_tasks":
             return self._execute_sync_tasks(input_data, project_id)
-        elif tool_id == "summarize_requirements":
-            return self._execute_summarize_requirements(input_data, project_id)
         else:
             raise ValidationError(f"알 수 없는 tool: {tool_id}")
 
-    def _execute_gen_user_story(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
-        """User Story 생성 tool 실행."""
-        # PRD 문서 가져오기
-        prd_doc = (
-            self.db.query(models.Document)
-            .filter(
-                models.Document.project_id == project_id,
-                models.Document.type == "PRD",
-            )
+    def _execute_start_development(self, input_data: dict[str, Any], session: models.MCPSession) -> dict[str, Any]:
+        """Start Development tool 실행."""
+        from app.domain.tasks import start_development_service
+
+        task_id = input_data.get("taskId")
+        if not isinstance(task_id, int):
+            raise ValidationError("start_development tool에는 taskId(int)가 필요합니다.")
+
+        task = (
+            self.db.query(models.Task)
+            .filter(models.Task.id == task_id)
             .first()
         )
+        if not task:
+            raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
 
-        if not prd_doc:
-            raise ValidationError("프로젝트에 PRD 문서가 없습니다.")
+        if task.project_id != session.connection.project_id:
+            raise ValidationError("현재 세션과 동일한 프로젝트의 태스크만 실행할 수 있습니다.")
 
-        prd_content = prd_doc.content_md or ""
+        provider_id = input_data.get("providerId") or session.connection.connection_type
+        options = input_data.get("options")
 
-        # AI를 사용하여 User Story 생성 (간단한 버전)
-        # 실제로는 ai_module의 userstory_chain을 사용할 수 있음
-        stories = [
-            f"사용자는 {prd_content[:50]}... 기능을 사용할 수 있어야 합니다.",
-            f"사용자는 프로젝트의 주요 기능을 이해하고 활용할 수 있어야 합니다.",
-        ]
+        request = StartDevelopmentRequest(provider_id=provider_id, options=options)
+        result = start_development_service(task_id, request, self.db)
 
         return {
-            "stories": stories,
-            "prd_title": prd_doc.title,
-            "generated_count": len(stories),
+            "taskId": task_id,
+            "sessionId": result.session_id,
+            "runId": result.run_id,
+            "status": result.status,
+            "preview": result.preview,
+            "summary": result.summary,
+            "providerId": provider_id,
+        }
+
+    def _collect_task_context(self, task_id: int) -> dict[str, Any]:
+        """태스크와 관련 문서 정보를 수집합니다."""
+        task = (
+            self.db.query(models.Task)
+            .filter(models.Task.id == task_id)
+            .first()
+        )
+        if not task:
+            raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
+
+        project = (
+            self.db.query(models.Project)
+            .filter(models.Project.id == task.project_id)
+            .first()
+        )
+        if not project:
+            raise ValidationError(f"프로젝트를 찾을 수 없습니다: {task.project_id}")
+
+        documents = (
+            self.db.query(models.Document)
+            .filter(models.Document.project_id == project.id)
+            .order_by(models.Document.updated_at.desc())
+            .all()
+        )
+
+        prd_doc = next((doc for doc in documents if doc.type == "PRD"), None)
+        srs_doc = next((doc for doc in documents if doc.type == "SRS"), None)
+        user_story_docs = [doc for doc in documents if doc.type == "USER_STORY"]
+
+        return {
+            "task": task,
+            "project": project,
+            "prd_doc": prd_doc,
+            "srs_doc": srs_doc,
+            "user_story_docs": user_story_docs,
+            "documents": documents,
+        }
+
+    def _execute_generate_code(self, input_data: dict[str, Any], session: models.MCPSession, project_id: int) -> dict[str, Any]:
+        """코드 생성 tool 실행 - 태스크와 문서 정보를 활용."""
+        task_id = input_data.get("taskId")
+        if not isinstance(task_id, int):
+            raise ValidationError("generate_code tool에는 taskId(int)가 필요합니다.")
+
+        task = (
+            self.db.query(models.Task)
+            .filter(models.Task.id == task_id)
+            .first()
+        )
+        if not task:
+            raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
+
+        if task.project_id != project_id:
+            raise ValidationError("현재 세션과 동일한 프로젝트의 태스크만 실행할 수 있습니다.")
+
+        # 태스크와 문서 정보 수집
+        context = self._collect_task_context(task_id)
+        
+        # 파일 경로 (선택)
+        file_path = input_data.get("filePath")
+        options = input_data.get("options", {})
+
+        # 코드 생성 프롬프트 구성
+        # 태스크 정보를 명확하게 강조
+        prompt_parts = [
+            "=" * 60,
+            f"# ⚠️ 중요: 다음 태스크를 정확히 구현하세요",
+            "=" * 60,
+            "",
+            f"## 태스크 제목: {task.title}",
+            f"## 태스크 ID: {task_id}",
+            "",
+            "## 태스크 상세 요구사항",
+            task.description_md or task.description or "No description",
+            "",
+            "=" * 60,
+            "",
+        ]
+
+        if context.get("prd_doc") and context["prd_doc"].content_md:
+            prompt_parts.extend([
+                "## PRD 문서",
+                context["prd_doc"].content_md[:1000],  # 일부만 포함
+                "",
+            ])
+
+        if context.get("srs_doc") and context["srs_doc"].content_md:
+            prompt_parts.extend([
+                "## SRS 문서",
+                context["srs_doc"].content_md[:1000],
+                "",
+            ])
+
+        # USER_STORY 문서들도 포함
+        user_story_docs = context.get("user_story_docs", [])
+        if user_story_docs:
+            prompt_parts.extend([
+                "## USER_STORY 문서",
+            ])
+            for us_doc in user_story_docs[:3]:  # 최대 3개만 포함
+                if us_doc.content_md:
+                    prompt_parts.extend([
+                        f"### {us_doc.title}",
+                        us_doc.content_md[:500],  # 각 스토리 500자 제한
+                        "",
+                    ])
+
+        if file_path:
+            prompt_parts.extend([
+                f"## 생성할 파일",
+                f"경로: {file_path}",
+                "",
+            ])
+
+        prompt = "\n".join(prompt_parts)
+
+        # 수집된 정보를 요약하여 즉시 반환
+        # 실제 코드 생성은 Cursor AI가 프롬프트를 받아서 수행
+        
+        # 수집된 정보 요약
+        summary_parts = [
+            f"✅ 태스크 정보 수집 완료: {task.title}",
+            f"✅ 프로젝트: {context['project'].title}",
+        ]
+        
+        if context.get("prd_doc"):
+            summary_parts.append(f"✅ PRD 문서: {context['prd_doc'].title} ({len(context['prd_doc'].content_md or '')} 문자)")
+        else:
+            summary_parts.append("⚠️ PRD 문서: 없음")
+        
+        if context.get("srs_doc"):
+            summary_parts.append(f"✅ SRS 문서: {context['srs_doc'].title} ({len(context['srs_doc'].content_md or '')} 문자)")
+        else:
+            summary_parts.append("⚠️ SRS 문서: 없음")
+        
+        user_story_count = len(context.get("user_story_docs", []))
+        if user_story_count > 0:
+            summary_parts.append(f"✅ USER_STORY 문서: {user_story_count}개")
+            for us_doc in context["user_story_docs"][:3]:
+                summary_parts.append(f"   - {us_doc.title}")
+        else:
+            summary_parts.append("⚠️ USER_STORY 문서: 없음")
+        
+        summary = "\n".join(summary_parts)
+        
+        # 프롬프트를 결과에 포함하여 Cursor가 사용할 수 있도록
+        # Cursor가 바로 사용할 수 있도록 더 명확한 형식으로 구성
+        result_data = {
+            "code": prompt,  # 전체 프롬프트를 코드로 반환 (Cursor가 이를 기반으로 코드 생성)
+            "filePath": file_path,
+            "summary": summary,
+            "message": "태스크 정보와 문서가 수집되었습니다. 위 프롬프트를 기반으로 코드를 생성하세요.",
+            "collectedContext": {
+                "taskId": task_id,
+                "taskTitle": task.title,
+                "projectTitle": context["project"].title,
+                "hasPRD": context.get("prd_doc") is not None,
+                "hasSRS": context.get("srs_doc") is not None,
+                "userStoryCount": user_story_count,
+            },
+            # Cursor가 바로 사용할 수 있도록 추가 정보
+            "taskInfo": {
+                "id": task_id,
+                "title": task.title,
+                "description": task.description_md or task.description or "",
+            },
+            "projectInfo": {
+                "id": context["project"].id,
+                "title": context["project"].title,
+            },
+        }
+
+        return result_data
+
+    def _execute_review_code(self, input_data: dict[str, Any], session: models.MCPSession, project_id: int) -> dict[str, Any]:
+        """코드 리뷰 tool 실행 - 태스크 요구사항과 문서를 기준으로 검토."""
+        task_id = input_data.get("taskId")
+        if not isinstance(task_id, int):
+            raise ValidationError("review_code tool에는 taskId(int)가 필요합니다.")
+
+        task = (
+            self.db.query(models.Task)
+            .filter(models.Task.id == task_id)
+            .first()
+        )
+        if not task:
+            raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
+
+        if task.project_id != project_id:
+            raise ValidationError("현재 세션과 동일한 프로젝트의 태스크만 실행할 수 있습니다.")
+
+        # 태스크와 문서 정보 수집
+        context = self._collect_task_context(task_id)
+        
+        file_paths = input_data.get("filePaths", [])
+
+        # 코드 리뷰 프롬프트 구성
+        prompt_parts = [
+            f"# 코드 리뷰 요청: {task.title}",
+            "",
+            "## 태스크 요구사항",
+            task.description_md or task.description or "No description",
+            "",
+        ]
+
+        if context.get("prd_doc") and context["prd_doc"].content_md:
+            prompt_parts.extend([
+                "## PRD 기준",
+                context["prd_doc"].content_md[:1000],
+                "",
+            ])
+
+        if context.get("srs_doc") and context["srs_doc"].content_md:
+            prompt_parts.extend([
+                "## SRS 기준",
+                context["srs_doc"].content_md[:1000],
+                "",
+            ])
+
+        # USER_STORY 문서들도 포함
+        user_story_docs = context.get("user_story_docs", [])
+        if user_story_docs:
+            prompt_parts.extend([
+                "## USER_STORY 기준",
+            ])
+            for us_doc in user_story_docs[:3]:  # 최대 3개만 포함
+                if us_doc.content_md:
+                    prompt_parts.extend([
+                        f"### {us_doc.title}",
+                        us_doc.content_md[:500],  # 각 스토리 500자 제한
+                        "",
+                    ])
+
+        if file_paths:
+            prompt_parts.extend([
+                "## 리뷰할 파일",
+                "\n".join(f"- {fp}" for fp in file_paths),
+                "",
+            ])
+
+        prompt_parts.extend([
+            "위 태스크와 문서를 기준으로 코드를 리뷰하고, 개선 사항과 이슈를 제안해주세요.",
+        ])
+
+        prompt = "\n".join(prompt_parts)
+
+        # MCP Run 생성하여 코드 리뷰 실행
+        run_data = self.create_run(
+            MCPRunCreate(
+                session_id=session.id,
+                mode="chat",
+                task_id=task_id,
+                input={
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a code review assistant. Review code against requirements and suggest improvements.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ]
+                },
+                config={
+                    "temperature": 0.3,
+                },
+            )
+        )
+
+        # 결과 파싱 (실제 구현 시 구조화된 파싱 필요)
+        result_text = str(run_data.result) if run_data.result else ""
+        issues = []
+        suggestions = []
+
+        # 간단한 파싱 (실제로는 더 정교한 파싱 필요)
+        if "이슈" in result_text or "issue" in result_text.lower():
+            issues.append({"type": "general", "message": result_text[:200]})
+        if "제안" in result_text or "suggestion" in result_text.lower():
+            suggestions.append(result_text[:200])
+
+        return {
+            "taskId": task_id,
+            "reviewedFiles": file_paths if file_paths else ["all"],
+            "issues": issues,
+            "suggestions": suggestions,
+            "status": run_data.status,
         }
 
     def _execute_sync_tasks(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
@@ -1027,29 +1582,6 @@ class MCPService:
             "tasks": task_list,
         }
 
-    def _execute_summarize_requirements(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
-        """요구사항 요약 tool 실행."""
-        # 프로젝트의 모든 문서 가져오기
-        documents = (
-            self.db.query(models.Document)
-            .filter(models.Document.project_id == project_id)
-            .all()
-        )
-
-        summary_parts = []
-        for doc in documents:
-            content_preview = (doc.content_md or "")[:200] if doc.content_md else ""
-            summary_parts.append({
-                "type": doc.type,
-                "title": doc.title,
-                "preview": content_preview,
-            })
-
-        return {
-            "summary": f"프로젝트에는 {len(documents)}개의 문서가 있습니다.",
-            "documents": summary_parts,
-            "total_documents": len(documents),
-        }
 
     def _format_tool_prompt(
         self,

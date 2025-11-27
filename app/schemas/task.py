@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,6 +17,11 @@ class TaskBase(BaseModel):
         default="dev",
         description="태스크 타입",
         examples=["docs", "design", "dev"],
+    )
+    assigned_role: Literal["Backend", "Frontend"] | None = Field(
+        default=None,
+        description="담당 역할",
+        examples=["Backend", "Frontend"],
     )
     status: str = Field(
         default="todo",
@@ -57,6 +62,7 @@ class TaskUpdate(BaseModel):
     description: str | None = Field(None, description="태스크 설명")
     description_md: str | None = Field(None, description="태스크 설명 마크다운")
     type: str | None = Field(None, description="태스크 타입")
+    assigned_role: Literal["Backend", "Frontend"] | None = Field(None, description="담당 역할 (Backend/Frontend)")
     status: str | None = Field(None, description="태스크 상태")
     priority: int | None = Field(None, description="우선순위 (0-10)", ge=0, le=10)
     tags: list[str] | None = Field(None, description="태그 목록")
@@ -79,6 +85,7 @@ class TaskResponse(TaskBase):
     summary: str | None = Field(None, description="작업 요약")
     duration: int | None = Field(None, description="작업 소요 시간 (초 단위)")
     result_logs: str | None = Field(None, description="결과 로그 (마크다운 형식)")
+    assigned_role: Literal["Backend", "Frontend"] | None = Field(None, description="담당 역할 (Backend/Frontend)")
     created_at: datetime
     updated_at: datetime
 
@@ -96,6 +103,7 @@ class TaskResponse(TaskBase):
             "type": obj.type,
             "status": obj.status,
             "priority": obj.priority,
+            "assigned_role": obj.assigned_role,
             "due_at": obj.due_at,
             "summary": obj.summary,
             "duration": obj.duration,
