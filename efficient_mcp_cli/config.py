@@ -59,3 +59,4 @@ def save_config(config: Config) -> None:
     typer.echo(f"설정이 저장되었습니다: {CONFIG_PATH}")
 
 
+

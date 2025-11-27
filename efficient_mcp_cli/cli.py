@@ -37,6 +37,137 @@ def _ensure_session(config: Config) -> str:
     return config.session_id
 
 
+@app.command("init")
+def init_project(
+    project_id: str = typer.Argument(..., help="프로젝트 ID"),
+    base_url: str = typer.Option("http://localhost:8000", "--url", help="백엔드 API 기본 URL"),
+    provider: str = typer.Option("cursor", "--provider", help="MCP 제공자 (cursor/claude/chatgpt)"),
+    api_token: str = typer.Option(
+        None,
+        "--token",
+        help="API 토큰 (없으면 자동 생성)",
+        hide_input=True,
+    ),
+) -> None:
+    """프로젝트를 초기화하고 MCP 설정 파일을 생성합니다 (Vooster.ai 스타일)."""
+    import platform
+    from pathlib import Path
+    
+    # 1. 기본 설정 저장
+    config = Config(base_url=base_url, project_id=project_id, api_token=api_token)
+    save_config(config)
+    typer.echo(f"✅ 프로젝트 설정 완료: {project_id}")
+    
+    # 2. MCP 연결 생성 및 활성화
+    with _build_client(config) as client:
+        # 연결 생성
+        payload = {"providerId": provider, "projectId": project_id}
+        response = client.post("/api/v1/mcp/connections", json=payload)
+        response.raise_for_status()
+        connection_id = response.json()["data"]["connectionId"]
+        typer.echo(f"✅ MCP 연결 생성: {connection_id}")
+        
+        # 연결 활성화
+        activate = client.post(f"/api/v1/mcp/connections/{connection_id}/activate")
+        activate.raise_for_status()
+        typer.echo(f"✅ MCP 연결 활성화 완료")
+        
+        # API 토큰이 없으면 생성 (또는 사용자에게 안내)
+        if not api_token:
+            typer.echo("⚠️  API 토큰이 필요합니다. 웹 UI에서 로그인하여 토큰을 받아오세요.")
+            typer.echo("   또는 `efficient-mcp configure --api-token <token>` 명령으로 설정하세요.")
+            api_token = typer.prompt("API 토큰을 입력하세요 (또는 Enter로 건너뛰기)", default="", hide_input=True)
+            if api_token:
+                config.api_token = api_token
+                save_config(config)
+        
+        if not config.api_token:
+            typer.echo("⚠️  API 토큰 없이 진행합니다. MCP 설정 파일 생성 시 토큰을 수동으로 추가해야 합니다.")
+        
+        # 3. MCP 설정 파일 생성
+        try:
+            # OS 감지
+            user_os = "macOS" if platform.system() == "Darwin" else "Windows" if platform.system() == "Windows" else "Linux"
+            
+            # 프로젝트 루트 경로 감지 (현재 작업 디렉토리)
+            project_root = Path.cwd()
+            adapter_path = project_root / "mcp_adapter" / "server.py"
+            python_path = project_root / ".venv" / "bin" / "python3"
+            
+            if not adapter_path.exists():
+                typer.echo(f"⚠️  MCP 어댑터를 찾을 수 없습니다: {adapter_path}", err=True)
+                typer.echo("   프로젝트 루트 디렉토리에서 실행하세요.")
+                raise typer.Exit(1)
+            
+            if not python_path.exists():
+                # Windows 또는 다른 경로 시도
+                python_path = project_root / ".venv" / "Scripts" / "python.exe"
+                if not python_path.exists():
+                    python_path = Path("python3")  # 시스템 Python 사용
+            
+            # MCP 설정 파일 내용 생성
+            mcp_config = {
+                "mcpServers": {
+                    "atlas-ai": {
+                        "command": str(python_path.resolve()),
+                        "args": [str(adapter_path.resolve())],
+                        "env": {
+                            "BACKEND_URL": base_url,
+                            "API_TOKEN": config.api_token or "YOUR_API_TOKEN_HERE",
+                            "PROJECT_ID": project_id,
+                            "CONNECTION_ID": connection_id,
+                        },
+                    }
+                }
+            }
+            
+            # OS별 설정 파일 경로
+            if user_os == "Windows":
+                install_path = Path.home() / "AppData" / "Roaming" / "Cursor" / "User" / "globalStorage" / "mcp.json"
+                python_path_str = str(python_path.resolve()).replace("\\", "\\\\")
+                adapter_path_str = str(adapter_path.resolve()).replace("\\", "\\\\")
+            else:  # macOS, Linux
+                install_path = Path.home() / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "mcp.json"
+                python_path_str = str(python_path.resolve())
+                adapter_path_str = str(adapter_path.resolve())
+            
+            mcp_config["mcpServers"]["atlas-ai"]["command"] = python_path_str
+            mcp_config["mcpServers"]["atlas-ai"]["args"] = [adapter_path_str]
+            
+            config_content = json.dumps(mcp_config, indent=2, ensure_ascii=False)
+            
+            # 설정 파일 저장
+            install_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 기존 파일이 있으면 병합
+            if install_path.exists():
+                try:
+                    existing = json.loads(install_path.read_text(encoding="utf-8"))
+                    if "mcpServers" in existing:
+                        existing["mcpServers"].update(mcp_config["mcpServers"])
+                        mcp_config = existing
+                        config_content = json.dumps(mcp_config, indent=2, ensure_ascii=False)
+                except Exception:
+                    pass  # 기존 파일이 손상되었으면 덮어쓰기
+            
+            install_path.write_text(config_content, encoding="utf-8")
+            
+            typer.echo(f"\n✅ MCP 설정 파일 생성 완료!")
+            typer.echo(f"   위치: {install_path}")
+            typer.echo(f"\n📋 다음 단계:")
+            typer.echo(f"   1. Cursor를 완전히 종료하고 다시 시작하세요")
+            typer.echo(f"   2. Cursor에서 MCP 서버 'atlas-ai'가 활성화되었는지 확인하세요")
+            typer.echo(f"   3. 태스크 명령어를 복사하여 Cursor MCP 채팅창에 붙여넣으세요")
+            
+        except Exception as e:
+            typer.echo(f"❌ MCP 설정 파일 생성 실패: {e}", err=True)
+            raise typer.Exit(1) from e
+        
+        # 연결 ID 저장
+        config.connection_id = connection_id
+        save_config(config)
+
+
 @app.command("configure")
 def configure(
     base_url: str = typer.Option(..., prompt=True, help="백엔드 API 기본 URL (예: http://localhost:8000)"),
@@ -309,6 +440,98 @@ def status() -> None:
 
     typer.echo(f"현재 connectionId: {config.connection_id or '-'}")
     typer.echo(f"현재 sessionId: {config.session_id or '-'}")
+
+
+@app.command("task-command")
+def generate_task_command(
+    task_id: int = typer.Argument(..., help="태스크 ID"),
+    format: str = typer.Option("vooster", "--format", help="명령어 형식 (vooster/natural)"),
+) -> None:
+    """태스크별 MCP 명령어를 생성합니다 (복사-붙여넣기용)."""
+    config = load_config()
+    
+    with _build_client(config) as client:
+        response = client.get(
+            f"/api/v1/mcp/tasks/{task_id}/command",
+            params={"command_format": format, "providerId": "cursor"},
+        )
+        response.raise_for_status()
+        # API가 직접 객체를 반환하므로 "data" 키가 없을 수 있음
+        response_data = response.json()
+        data = response_data.get("data", response_data)  # "data" 키가 있으면 사용, 없으면 직접 사용
+        
+        typer.echo("\n" + "=" * 60)
+        typer.echo("📋 복사-붙여넣기 명령어")
+        typer.echo("=" * 60)
+        typer.echo(f"\n태스크 ID: {data.get('taskId', task_id)}")
+        typer.echo(f"태스크 제목: {data.get('taskTitle', 'N/A')}")
+        typer.echo("\n명령어:")
+        typer.echo("-" * 60)
+        typer.echo(data.get("command", "N/A"))
+        typer.echo("-" * 60)
+        typer.echo("\n설명:")
+        typer.echo(data.get("description", "N/A"))
+        typer.echo("\n" + "=" * 60)
+        typer.echo("\n💡 위 명령어를 Cursor의 MCP 채팅창에 붙여넣으세요!")
+
+
+@app.command("setup")
+def setup_mcp(
+    project_id: str = typer.Argument(..., help="프로젝트 ID"),
+    base_url: str = typer.Option("http://localhost:8000", "--url", help="백엔드 API 기본 URL"),
+    provider: str = typer.Option("cursor", "--provider", help="MCP 제공자 (cursor/claude/chatgpt)"),
+    api_token: str = typer.Option(
+        None,
+        "--token",
+        help="API 토큰",
+        hide_input=True,
+    ),
+) -> None:
+    """MCP 연결을 완전히 설정합니다 (init + 세션 생성)."""
+    # init 실행
+    init_project(project_id=project_id, base_url=base_url, provider=provider, api_token=api_token)
+    
+    # 세션 생성
+    config = load_config()
+    connection_id = _ensure_connection(config)
+    
+    with _build_client(config) as client:
+        payload = {"connectionId": connection_id, "projectId": project_id}
+        try:
+            response = client.post("/api/v1/mcp/sessions", json=payload)
+            response.raise_for_status()
+            session_id = response.json()["data"]["sessionId"]
+            typer.echo(f"✅ MCP 세션 생성: {session_id}")
+            config.session_id = session_id
+            save_config(config)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 400:
+                error_data = exc.response.json()
+                error_msg = error_data.get("error", "알 수 없는 오류")
+                if "활성화된" in error_msg or "active" in error_msg.lower():
+                    typer.echo("연결을 활성화합니다...")
+                    activate = client.post(f"/api/v1/mcp/connections/{connection_id}/activate")
+                    activate.raise_for_status()
+                    response = client.post("/api/v1/mcp/sessions", json=payload)
+                    response.raise_for_status()
+                    session_id = response.json()["data"]["sessionId"]
+                    typer.echo(f"✅ MCP 세션 생성: {session_id}")
+                    config.session_id = session_id
+                    save_config(config)
+                else:
+                    typer.echo(f"⚠️  세션 생성 실패: {error_msg}")
+            else:
+                typer.echo(f"⚠️  세션 생성 실패: HTTP {exc.response.status_code}")
+    
+    typer.echo("\n" + "=" * 60)
+    typer.echo("✅ MCP 설정 완료!")
+    typer.echo("=" * 60)
+    typer.echo("\n📋 다음 단계:")
+    typer.echo("   1. Cursor를 완전히 종료하고 다시 시작하세요")
+    typer.echo("   2. Cursor에서 MCP 서버 'atlas-ai'가 활성화되었는지 확인하세요")
+    typer.echo("   3. 태스크 명령어 생성:")
+    typer.echo(f"      efficient-mcp task-command <태스크_ID>")
+    typer.echo("   4. 생성된 명령어를 Cursor MCP 채팅창에 붙여넣으세요")
 
 
 if __name__ == "__main__":  # pragma: no cover
