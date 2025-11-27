@@ -258,12 +258,12 @@ class MCPService:
     def create_session(self, payload: MCPSessionCreate) -> MCPSessionData:
         """MCP 세션 생성."""
         try:
-        connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
+            connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
         except ValidationError as exc:
             raise ValidationError(f"연결 ID 형식이 올바르지 않습니다: {payload.connection_id}. {exc.message}") from exc
 
         try:
-        connection = self._get_connection(connection_id)
+            connection = self._get_connection(connection_id)
         except NotFoundError as exc:
             raise ValidationError(f"연결을 찾을 수 없습니다: {payload.connection_id}") from exc
 
@@ -275,17 +275,17 @@ class MCPService:
             )
 
         try:
-        session = models.MCPSession(
-            connection_id=connection.id,
-                project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
-            status="ready",
-            context=self._dump_json({}),
-            metadata_json=self._dump_json(payload.metadata),
-        )
-        self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
-        return self._to_session_data(session)
+            session = models.MCPSession(
+                connection_id=connection.id,
+                    project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
+                status="ready",
+                context=self._dump_json({}),
+                metadata_json=self._dump_json(payload.metadata),
+            )
+            self.db.add(session)
+            self.db.commit()
+            self.db.refresh(session)
+            return self._to_session_data(session)
         except Exception as exc:
             self.db.rollback()
             raise ValidationError(f"세션 생성 중 오류가 발생했습니다: {str(exc)}") from exc

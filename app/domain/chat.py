@@ -230,7 +230,7 @@ async def stream_service(chat_session_id: int, request: Request, db: Session):
 
                 try:
                     token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     yield {"event": "timeout", "data": "no tokens, stream closed"}
                     cancel_ev.set()
                     station = SESSIONS.get(chat_session_id)

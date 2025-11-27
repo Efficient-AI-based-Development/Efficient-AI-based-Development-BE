@@ -54,47 +54,6 @@ def create_token(user_id: str, token_type: str, expires_delta: timedelta) -> str
     return encoded_jwt
 
 
-def get_current_user(
-    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme), db: Session = Depends(get_db)
-):
-    token: str | None = None
-
-    # 1) 헤더에 Bearer 토큰이 있으면 그거 우선
-    if credentials is not None:
-        token = credentials.credentials
-    else:
-        # 2) 없으면 query string ?token=... 에서 가져오기
-        token = request.query_params.get("token")
-
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user_id: str | None = payload.get("sub")
-    token_type: str | None = payload.get("type")
-
-    if user_id is None or token_type != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-        )
-
-    user = db.query(User).filter(User.user_id == user_id).one_or_none()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
-    return user
-
-
 async def exchange_code_for_token(code: str) -> dict:
     token_url = "https://oauth2.googleapis.com/token"
 
@@ -174,5 +133,46 @@ def get_or_create_user_from_google(userinfo: dict, db: Session) -> User:
     db.add(social)
     db.commit()
     db.refresh(user)
+
+    return user
+
+
+def get_current_user(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme), db: Session = Depends(get_db)
+):
+    token: str | None = None
+
+    # 1) 헤더에 Bearer 토큰이 있으면 그거 우선
+    if credentials is not None:
+        token = credentials.credentials
+    else:
+        # 2) 없으면 query string ?token=... 에서 가져오기
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id: str | None = payload.get("sub")
+    token_type: str | None = payload.get("type")
+
+    if user_id is None or token_type != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    user = db.query(User).filter(User.user_id == user_id).one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
 
     return user
