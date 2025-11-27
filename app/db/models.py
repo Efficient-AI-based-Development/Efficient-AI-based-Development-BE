@@ -399,6 +399,11 @@ class Task(Base):
         default=5,
         comment="우선순위 (0-10)",
     )
+    assigned_role: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="담당 역할 (Backend/Frontend)",
+    )
     tags: Mapped[str | None] = mapped_column(
         CLOB,
         comment="태그 목록 (JSON 배열 문자열)",
@@ -481,6 +486,10 @@ class Task(Base):
         CheckConstraint(
             "priority >= 0 AND priority <= 10",
             name="chk_task_priority",
+        ),
+        CheckConstraint(
+            "(assigned_role IN ('Backend', 'Frontend')) OR assigned_role IS NULL",
+            name="chk_task_assigned_role",
         ),
     )
 

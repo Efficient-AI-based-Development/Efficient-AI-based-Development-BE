@@ -18,6 +18,7 @@ from mcp.types import (
     ListResourcesRequest,
     ListToolsRequest,
     ReadResourceRequest,
+    TextContent,
     Tool,
 )
 
@@ -29,7 +30,7 @@ CONNECTION_ID = os.getenv("CONNECTION_ID", "")
 SESSION_ID = os.getenv("SESSION_ID", "")
 
 # MCP 서버 생성
-app = Server("efficient-ai-mcp")
+app = Server("atlas-ai-mcp")
 
 # HTTP 클라이언트
 # MCP API는 인증이 필요 없을 수 있음 (실제 확인 필요)
@@ -112,7 +113,7 @@ async def list_tools() -> list[Tool]:
 
 
 @app.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Tool 실행."""
     try:
         session_id = await ensure_session()
@@ -140,42 +141,85 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]
 
             if status_data["status"] in ["succeeded", "failed", "cancelled"]:
                 result = status_data.get("result", {})
+                
+                # result가 문자열인 경우 JSON 파싱 시도
+                if isinstance(result, str):
+                    try:
+                        result = json.loads(result)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                
                 if status_data["status"] == "failed":
+                    # MCP SDK 형식: TextContent 리스트
+                    error_msg = result.get("error", status_data.get('message', 'Unknown error')) if isinstance(result, dict) else str(result)
                     return [
-                        {
-                            "isError": True,
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": f"Tool 실행 실패: {status_data.get('message', 'Unknown error')}",
-                                }
-                            ],
-                        }
+                        TextContent(
+                            type="text",
+                            text=f"❌ Tool 실행 실패: {error_msg}",
+                        )
                     ]
+                
+                # 성공 시: result를 읽기 쉬운 형식으로 변환
+                if isinstance(result, dict):
+                    # generate_code 툴의 경우 특별 처리
+                    if name == "generate_code" and "code" in result:
+                        # 프롬프트를 직접 포함하여 Cursor가 바로 사용할 수 있도록
+                        code_content = result.get('code', '')
+                        summary = result.get('summary', 'N/A')
+                        task_title = result.get('collectedContext', {}).get('taskTitle', 'N/A')
+                        
+                        # 명확하고 강조된 형식으로 변환
+                        # 프롬프트 내용을 직접 사용 (이미 태스크 정보가 포함되어 있음)
+                        formatted_text = f"""✅ 태스크 정보 수집 완료
+
+{summary}
+
+---
+
+## ⚠️ 중요: 아래 프롬프트를 정확히 따라 구현하세요
+
+프롬프트에 포함된 태스크 요구사항을 정확히 구현해야 합니다.
+다른 태스크나 일반적인 코드를 생성하지 마세요.
+
+---
+
+{code_content}
+
+---
+
+## 📁 추가 정보
+- 파일 경로: {result.get('filePath', '미지정')}
+- 메시지: {result.get('message', 'N/A')}
+
+**위 프롬프트의 태스크 요구사항을 정확히 따라 구현하세요.**
+"""
+                    elif name == "start_development":
+                        # start_development 툴의 경우
+                        formatted_text = f"""✅ 개발 시작 완료
+
+{json.dumps(result, indent=2, ensure_ascii=False)}
+"""
+                    else:
+                        # 다른 툴의 경우 JSON 형식으로
+                        formatted_text = json.dumps(result, indent=2, ensure_ascii=False)
+                else:
+                    formatted_text = str(result)
+                
                 return [
-                    {
-                        "isError": False,
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": str(result),
-                            }
-                        ],
-                    }
+                    TextContent(
+                        type="text",
+                        text=formatted_text,
+                    )
                 ]
 
             await asyncio.sleep(0.5)
 
+        # 시간 초과
         return [
-            {
-                "isError": True,
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Tool 실행 시간 초과",
-                    }
-                ],
-            }
+            TextContent(
+                type="text",
+                text="Tool 실행 시간 초과",
+            )
         ]
     except Exception as e:
         error_msg = str(e)
@@ -183,15 +227,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]
             error_msg = f"HTTP {e.response.status_code}: {e.response.text}"
         print(f"Tool execution error: {error_msg}", file=sys.stderr)
         return [
-            {
-                "isError": True,
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Tool 실행 오류: {error_msg}",
-                    }
-                ],
-            }
+            TextContent(
+                type="text",
+                text=f"Tool 실행 오류: {error_msg}",
+            )
         ]
 
 

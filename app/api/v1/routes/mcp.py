@@ -4,13 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.db import models
+from app.db.models import User
 from app.domain.auth import get_current_user
 from app.domain.mcp import MCPService
+from app.core.config import settings
 from app.schemas.mcp import (
     MCPConnectionCloseResponse,
     MCPConnectionCreate,
     MCPConnectionListResponse,
     MCPConnectionResponse,
+    MCPConfigFileResponse,
     MCPGuideResponse,
     MCPProjectStatusResponse,
     MCPPromptListResponse,
@@ -25,6 +29,7 @@ from app.schemas.mcp import (
     MCPSessionCreate,
     MCPSessionListResponse,
     MCPSessionResponse,
+    MCPTaskCommandResponse,
     MCPToolListResponse,
 )
 
@@ -33,6 +38,12 @@ router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[Depends(get_curren
 
 def _service(db: Session) -> MCPService:
     return MCPService(db)
+
+
+def _legacy_guard(detail: str) -> None:
+    """Allow legacy MCP endpoints only in debug/dev environments."""
+    if not settings.debug:
+        raise HTTPException(status_code=410, detail=detail)
 
 
 # Project summary
@@ -86,10 +97,9 @@ def list_project_statuses(db: Session = Depends(get_db)):
     ),
 )
 def create_connection(connection: MCPConnectionCreate, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 연결 생성은 Start Development 흐름에서 자동 처리됩니다.",
-    )
+    _legacy_guard("Deprecated: 연결 생성은 Start Development 흐름에서 자동 처리됩니다.")
+    data = _service(db).create_connection(connection)
+    return {"data": data}
 
 
 @router.get(
@@ -113,10 +123,9 @@ def list_connections(
     project_id: str = Query(None, alias="projectId"),
     db: Session = Depends(get_db),
 ):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 연결 조회는 관리자용입니다. 일반 플로우에서는 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 연결 조회는 관리자용입니다. 일반 플로우에서는 사용하지 않습니다.")
+    data = _service(db).list_connections(project_id)
+    return {"data": data}
 
 
 @router.delete(
@@ -134,10 +143,9 @@ def list_connections(
     ),
 )
 def delete_connection(connection_id: str, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 연결 종료는 관리자용입니다. Start Development 자동 연결을 사용하세요.",
-    )
+    _legacy_guard("Deprecated: 연결 종료는 관리자용입니다. Start Development 자동 연결을 사용하세요.")
+    data = _service(db).deactivate_connection(connection_id)
+    return {"data": data}
 
 
 @router.post(
@@ -159,10 +167,9 @@ def delete_connection(connection_id: str, db: Session = Depends(get_db)):
     ),
 )
 def activate_connection(connection_id: str, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 연결 활성화는 Start Development에서 자동 수행됩니다.",
-    )
+    _legacy_guard("Deprecated: 연결 활성화는 Start Development에서 자동 수행됩니다.")
+    data = _service(db).activate_connection(connection_id)
+    return {"data": data}
 
 
 @router.get(
@@ -213,10 +220,9 @@ def get_provider_guide(provider_id: str, db: Session = Depends(get_db)):
     ),
 )
 def create_session(session: MCPSessionCreate, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 세션 생성은 Start Development에서 자동 수행됩니다.",
-    )
+    _legacy_guard("Deprecated: 세션 생성은 Start Development에서 자동 수행됩니다.")
+    data = _service(db).create_session(session)
+    return {"data": data}
 
 
 @router.get(
@@ -239,10 +245,9 @@ def list_sessions(
     connection_id: str = Query(None, alias="connectionId"),
     db: Session = Depends(get_db),
 ):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 세션 조회는 관리자용입니다.",
-    )
+    _legacy_guard("Deprecated: 세션 조회는 관리자용입니다.")
+    data = _service(db).list_sessions(connection_id)
+    return {"data": data}
 
 
 @router.delete(
@@ -260,10 +265,9 @@ def list_sessions(
     ),
 )
 def delete_session(session_id: str, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 세션 종료는 Start Development 플로우에서 자동 관리됩니다.",
-    )
+    _legacy_guard("Deprecated: 세션 종료는 Start Development 플로우에서 자동 관리됩니다.")
+    data = _service(db).close_session(session_id)
+    return {"data": data}
 
 
 # Catalog (Tools/Resources/Prompts)
@@ -275,10 +279,9 @@ def delete_session(session_id: str, db: Session = Depends(get_db)):
     include_in_schema=False,
 )
 def list_tools(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 툴 목록은 현재 플로우에서 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 툴 목록은 현재 플로우에서 사용하지 않습니다.")
+    data = _service(db).list_tools(session_id)
+    return {"data": data}
 
 
 @router.get(
@@ -289,10 +292,9 @@ def list_tools(session_id: str = Query(..., alias="sessionId"), db: Session = De
     include_in_schema=False,
 )
 def list_resources(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 리소스 목록은 현재 플로우에서 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 리소스 목록은 현재 플로우에서 사용하지 않습니다.")
+    data = _service(db).list_resources(session_id)
+    return {"data": data}
 
 
 @router.get(
@@ -307,10 +309,9 @@ def read_resource(
     uri: str = Query(..., description="읽을 리소스 URI"),
     db: Session = Depends(get_db),
 ):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 리소스 읽기는 현재 플로우에서 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 리소스 읽기는 현재 플로우에서 사용하지 않습니다.")
+    data = _service(db).read_resource(session_id, uri)
+    return {"data": data}
 
 
 @router.get(
@@ -321,10 +322,9 @@ def read_resource(
     include_in_schema=False,
 )
 def list_prompts(session_id: str = Query(..., alias="sessionId"), db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 프롬프트 목록은 현재 플로우에서 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 프롬프트 목록은 현재 플로우에서 사용하지 않습니다.")
+    data = _service(db).list_prompts(session_id)
+    return {"data": data}
 
 
 # Runs
@@ -350,10 +350,9 @@ def list_prompts(session_id: str = Query(..., alias="sessionId"), db: Session = 
     ),
 )
 def create_run(run: MCPRunCreate, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 실행 생성은 Start Development에서 자동 수행됩니다.",
-    )
+    _legacy_guard("Deprecated: 실행 생성은 Start Development에서 자동 수행됩니다.")
+    data = _service(db).create_run(run)
+    return {"data": data}
 
 
 @router.get(
@@ -393,10 +392,9 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
     include_in_schema=False,
 )
 def cancel_run(run_id: str, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 실행 취소는 현재 플로우에서 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 실행 취소는 현재 플로우에서 사용하지 않습니다.")
+    data = _service(db).cancel_run(run_id)
+    return {"data": data}
 
 
 @router.get(
@@ -407,7 +405,94 @@ def cancel_run(run_id: str, db: Session = Depends(get_db)):
     include_in_schema=False,
 )
 def stream_run_events(run_id: str, db: Session = Depends(get_db)):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated: 실행 이벤트 조회는 현재 플로우에서 사용하지 않습니다.",
-    )
+    _legacy_guard("Deprecated: 실행 이벤트 조회는 현재 플로우에서 사용하지 않습니다.")
+    data = _service(db).list_run_events(run_id)
+    return {"data": data}
+
+
+# ---------------------------------------------------------------------------
+# Copy-Paste Ready Config (vooster.ai style)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/projects/{project_id}/config-file",
+    response_model=MCPConfigFileResponse,
+    summary="MCP 설정 파일 생성 (복사-붙여넣기용)",
+    description=(
+        "vooster.ai 스타일: 사용자가 복사-붙여넣기만 하면 Cursor에서 MCP 연결이 가능하도록 설정 파일을 생성합니다.\n\n"
+        "**사용 방법:**\n"
+        "1. 이 API를 호출하여 설정 파일 내용을 받습니다\n"
+        "2. 사용자가 받은 내용을 Cursor 설정 파일 위치에 복사합니다\n"
+        "3. Cursor를 재시작하면 MCP 연결이 활성화됩니다\n\n"
+        "**파라미터:**\n"
+        "- `project_id`: 프로젝트 ID\n"
+        "- `provider_id`: MCP 제공자 (cursor/claude/chatgpt)\n"
+        "- `os`: 운영체제 (macOS/Windows, 기본값: macOS)\n\n"
+        "**인증:**\n"
+        "- Authorization 헤더에서 Bearer 토큰을 자동으로 읽어 사용합니다.\n"
+    ),
+)
+def generate_mcp_config_file(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    provider_id: str = Query(default="cursor", description="MCP 제공자 (cursor/claude/chatgpt)"),
+    user_os: str = Query(default="macOS", description="운영체제 (macOS/Windows)"),
+    db: Session = Depends(get_db),
+):
+    """MCP 설정 파일 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
+    # 프로젝트 소유권 확인
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
+    
+    # 사용자 토큰 생성 (MCP 어댑터에서 사용할 토큰)
+    from app.domain.auth import create_access_token
+    
+    # 사용자 토큰 생성 (또는 기존 토큰 재사용)
+    api_token = create_access_token(current_user.user_id)
+    
+    data = _service(db).generate_mcp_config_file(project_id, provider_id, api_token, user_os)
+    return data
+
+
+@router.get(
+    "/tasks/{task_id}/command",
+    response_model=MCPTaskCommandResponse,
+    summary="태스크별 MCP 명령어 생성 (복사-붙여넣기용)",
+    description=(
+        "vooster.ai 스타일: 태스크별로 Cursor에서 사용할 명령어를 생성합니다.\n\n"
+        "**사용 방법:**\n"
+        "1. 이 API를 호출하여 명령어를 받습니다\n"
+        "2. 사용자가 받은 명령어를 Cursor의 MCP 채팅창에 붙여넣습니다\n"
+        "3. Cursor의 AI가 자동으로 적절한 MCP 툴을 선택하여 실행합니다\n"
+        "4. 시스템이 자동으로 PRD/SRS/USER_STORY 문서와 태스크 정보를 수집하여 코드를 생성합니다\n\n"
+        "**파라미터:**\n"
+        "- `task_id`: 태스크 ID\n"
+        "- `provider_id`: MCP 제공자 (선택, 기본값: cursor)\n"
+        "- `format`: 명령어 형식 (선택, 기본값: vooster)\n"
+        "  - `vooster`: 구조화된 명령어 (예: \"atlas-ai를 사용해서 프로젝트 148의 태스크 236 작업 수행하라\")\n"
+        "  - `natural`: 자연어 명령어 (예: \"AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘\")\n\n"
+        "**인증:**\n"
+        "- Authorization 헤더에서 Bearer 토큰을 자동으로 읽어 사용합니다.\n"
+    ),
+)
+def generate_task_command(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    provider_id: str = Query(default="cursor", description="MCP 제공자 (cursor/claude/chatgpt)"),
+    format: str = Query(default="vooster", description="명령어 형식 (vooster/natural)"),
+    db: Session = Depends(get_db),
+):
+    """태스크별 MCP 명령어 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
+    # 태스크 소유권 확인 (선택사항 - 필요시 추가)
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
+    
+    # 명령어 형식 검증
+    if format not in {"vooster", "natural"}:
+        raise HTTPException(status_code=400, detail="format must be 'vooster' or 'natural'")
+    
+    data = _service(db).generate_task_command(task_id, provider_id, command_format=format)
+    return data

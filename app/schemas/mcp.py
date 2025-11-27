@@ -496,3 +496,51 @@ class MCPGuideResponse(BaseModel):
     )
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+# ---------------------------------------------------------------------------
+# Copy-Paste Ready Config (vooster.ai style)
+# ---------------------------------------------------------------------------
+
+
+class MCPConfigFileResponse(BaseModel):
+    """MCP 설정 파일 (mcp.json) 응답 - 사용자가 복사-붙여넣기만 하면 됨."""
+
+    config_content: str = Field(
+        ...,
+        alias="configContent",
+        description="mcp.json 파일 내용 (JSON 문자열)",
+    )
+    file_name: str = Field(
+        default="mcp.json",
+        alias="fileName",
+        description="파일 이름",
+    )
+    install_path: str = Field(
+        ...,
+        alias="installPath",
+        description="설정 파일을 복사할 경로 (OS별 안내)",
+    )
+    instructions: list[str] = Field(
+        default_factory=list,
+        description="설정 방법 안내 (단계별)",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MCPTaskCommandResponse(BaseModel):
+    """태스크별 MCP 명령어 응답 - Cursor에서 복사-붙여넣기만 하면 됨."""
+
+    command: str = Field(
+        ...,
+        description="Cursor에서 실행할 명령어 (복사-붙여넣기용)",
+    )
+    task_id: int = Field(..., alias="taskId", description="태스크 ID")
+    task_title: str = Field(..., alias="taskTitle", description="태스크 제목")
+    description: str = Field(
+        ...,
+        description="명령어 설명 및 사용 방법",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
