@@ -100,10 +100,10 @@ async def exchange_code_for_token(code: str) -> dict:
 
     environment = os.getenv("ENVIRONMENT", "development")  # "development" 또는 "production"
 
-    if environment == "production":
-        frontend_url = "https://atrina.vercel.app/auth/google"
-    else:
-        frontend_url = "http://localhost:5173/auth/google"  # 개발 환경
+    # if environment == "production":
+    frontend_url = "https://atrina.vercel.app/auth/google"
+    # else:
+    #     frontend_url = "http://localhost:5173/auth/google"  # 개발 환경
 
     data = {
         "code": code,
