@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
@@ -13,9 +13,9 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.db.models import SocialAccount, User
 
-auth_scheme = HTTPBearer()
+auth_scheme = HTTPBearer(auto_error=False)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 300000
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 pwd_context = CryptContext(
@@ -54,8 +54,21 @@ def create_token(user_id: str, token_type: str, expires_delta: timedelta) -> str
     return encoded_jwt
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme), db: Session = Depends(get_db)):
-    token = credentials.credentials
+def get_current_user(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme), db: Session = Depends(get_db)
+):
+    token: str | None = None
+
+    # 1) 헤더에 Bearer 토큰이 있으면 그거 우선
+    if credentials is not None:
+        token = credentials.credentials
+    else:
+        # 2) 없으면 query string ?token=... 에서 가져오기
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except ExpiredSignatureError:

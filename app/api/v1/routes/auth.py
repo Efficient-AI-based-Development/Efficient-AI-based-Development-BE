@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy.orm import Session
@@ -54,6 +54,7 @@ refresh_scheme = HTTPBearer(auto_error=True)
 
 @router.post("/refresh", response_model=TokenPair)
 def refresh_token(
+    response: Response,
     credentials: HTTPAuthorizationCredentials = Depends(refresh_scheme),
     db: Session = Depends(get_db),
 ):
@@ -81,11 +82,21 @@ def refresh_token(
     access_jwt = create_access_token(user_id)
     refresh_jwt = create_refresh_token(user_id)
 
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_jwt,
+        httponly=True,
+        secure=(settings.ENV == "prod"),
+        samesite="none",  # cross-site 허용 (프론트 도메인 다를 때 필수)
+        max_age=60 * 60 * 24 * 7,
+        path="/",
+    )
+
     return TokenPair(access_token=access_jwt, refresh_token=refresh_jwt)
 
 
 @router.post("/login/google/exchange", response_model=TokenPair)
-async def google_exchange(request: GoogleCodeRequest, db: Session = Depends(get_db)):
+async def google_exchange(request: GoogleCodeRequest, response: Response, db: Session = Depends(get_db)):
     code = request.code
     if not code:
         raise HTTPException(400, "code가 없습니다.")
@@ -100,6 +111,16 @@ async def google_exchange(request: GoogleCodeRequest, db: Session = Depends(get_
 
     access_jwt = create_access_token(payload)
     refresh_jwt = create_refresh_token(payload)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_jwt,
+        httponly=True,
+        secure=(settings.ENV == "prod"),  # dev에서는 False, prod에서만 True
+        samesite="none",
+        max_age=60 * 60 * 24 * 7,
+        path="/",
+    )
 
     return TokenPair(
         access_token=access_jwt,

@@ -146,3 +146,56 @@ class RepoSnapshot(BaseModel):
     branch: str | None = None
     commit: str | None = None
     files: list[RepoFile] = Field(default_factory=list)
+
+
+# PM Agent - 프로젝트 메타데이터
+class ProjectMetadata(BaseModel):
+    project_name: str = Field(..., description="프로젝트 이름")
+    main_color: str = Field(..., description="메인 컬러 (예: #3498db)")
+    page_count: int = Field(..., ge=1, description="예상 페이지 수")
+    feature_count: int = Field(..., ge=1, description="구현할 기능 수")
+    ai_model: str = Field(..., description="사용할 AI 모델 (예: GPT-4, Claude, Solar-Pro)")
+    tech_stack: list[str] = Field(..., min_length=6, max_length=6, description="기술 스택 6개")
+    service_description: str = Field(..., description="만들고 싶은 서비스 설명")
+
+
+# PM Agent - 초기 입력
+class PMAgentInput(BaseModel):
+    user_input: str = Field(
+        ...,
+        description="사용자의 초기 프로젝트 설명 (프로젝트명, 컬러, 페이지수, 기능수, AI모델, 기술스택, 서비스 설명 포함)",
+    )
+
+
+# PM Agent - 출력s
+class PMAgentOutput(BaseModel):
+    metadata: ProjectMetadata = Field(..., description="추출된 프로젝트 메타데이터")
+    summary: str = Field(..., description="프로젝트 요약 및 확인 메시지")
+    suggestions: list[str] = Field(default_factory=list, description="PM의 제안 사항")
+    message: str = Field(..., description="사용자에게 안내하는 한국어 메시지")
+
+
+# PM Agent - 대화형 수정
+class PMAgentChatInput(BaseModel):
+    current_metadata: ProjectMetadata = Field(..., description="현재 프로젝트 메타데이터")
+    user_feedback: str = Field(..., description="사용자의 수정 요청 또는 피드백")
+
+
+# Task AI Agent - 기존 Task 수정
+class TaskModifyInput(BaseModel):
+    current_task: Task = Field(..., description="수정할 기존 Task")
+    user_feedback: str = Field(..., description="수정 요청 내용")
+
+
+# Task AI Agent - 새 Task 추가
+class TaskAddInput(BaseModel):
+    existing_tasks: list[Task]
+    user_request: str = Field(..., description="추가하고 싶은 Task 설명")
+    project_context: str | None = Field(None, description="프로젝트 컨텍스트 (선택)")
+
+
+# Task AI Agent - 출력
+class TaskAIOutput(BaseModel):
+    task: Task = Field(..., description="수정되거나 새로 생성된 Task")
+    changes: list[str] = Field(default_factory=list, description="변경 사항 요약")
+    message: str = Field(..., description="사용자에게 안내하는 한국어 메시지")

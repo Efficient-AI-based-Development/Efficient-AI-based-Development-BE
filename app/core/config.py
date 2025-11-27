@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     LLM_MODEL_WRITER: str = "solar-pro2"
     LLM_MODEL_AUDITOR: str = "solar-pro2"
     LLM_MODEL_DECOMPOSER: str = "solar-pro2"
+    LLM_MODEL_PM: str = "solar-pro2"
+    LLM_MODEL_TASK_AI: str = "solar-pro2"
+
+    ENV: str = "dev"
 
     @property
     def get_database_url(self) -> str:

@@ -258,15 +258,15 @@ class MCPService:
     def create_session(self, payload: MCPSessionCreate) -> MCPSessionData:
         """MCP 세션 생성."""
         try:
-            connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
+        connection_id = self._decode_connection_id(payload.connection_id, prefix="cn")
         except ValidationError as exc:
             raise ValidationError(f"연결 ID 형식이 올바르지 않습니다: {payload.connection_id}. {exc.message}") from exc
-        
+
         try:
-            connection = self._get_connection(connection_id)
+        connection = self._get_connection(connection_id)
         except NotFoundError as exc:
             raise ValidationError(f"연결을 찾을 수 없습니다: {payload.connection_id}") from exc
-        
+
         if connection.status not in {"connected", "active"}:
             raise ValidationError(
                 f"활성화된 MCP 연결에서만 세션을 시작할 수 있습니다. "
@@ -275,17 +275,17 @@ class MCPService:
             )
 
         try:
-            session = models.MCPSession(
-                connection_id=connection.id,
+        session = models.MCPSession(
+            connection_id=connection.id,
                 project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
-                status="ready",
-                context=self._dump_json({}),
-                metadata_json=self._dump_json(payload.metadata),
-            )
-            self.db.add(session)
-            self.db.commit()
-            self.db.refresh(session)
-            return self._to_session_data(session)
+            status="ready",
+            context=self._dump_json({}),
+            metadata_json=self._dump_json(payload.metadata),
+        )
+        self.db.add(session)
+        self.db.commit()
+        self.db.refresh(session)
+        return self._to_session_data(session)
         except Exception as exc:
             self.db.rollback()
             raise ValidationError(f"세션 생성 중 오류가 발생했습니다: {str(exc)}") from exc
@@ -406,12 +406,14 @@ class MCPService:
             .all()
         )
         for task in tasks:
-            results.append({
+            results.append(
+                {
                 "type": "task",
                 "id": task.id,
                 "title": task.title,
                 "status": task.status,
-            })
+                }
+            )
 
         # 문서 검색
         documents = (
@@ -424,12 +426,14 @@ class MCPService:
             .all()
         )
         for doc in documents:
-            results.append({
+            results.append(
+                {
                 "type": "document",
                 "id": doc.id,
                 "title": doc.title,
                 "doc_type": doc.type,
-            })
+                }
+            )
 
         return {
             "uri": f"search:///code?query={query}",
@@ -1559,29 +1563,27 @@ class MCPService:
     def _execute_sync_tasks(self, input_data: dict[str, Any], project_id: int) -> dict[str, Any]:
         """태스크 동기화 tool 실행."""
         tasks = (
-            self.db.query(models.Task)
-            .filter(models.Task.project_id == project_id)
-            .order_by(models.Task.updated_at.desc())
-            .all()
+            self.db.query(models.Task).filter(models.Task.project_id == project_id).order_by(models.Task.updated_at.desc()).all()
         )
 
         task_list = []
         for task in tasks:
-            task_list.append({
+            task_list.append(
+                {
                 "id": task.id,
                 "title": task.title,
                 "status": task.status,
                 "type": task.type,
                 "priority": task.priority,
                 "updated_at": task.updated_at.isoformat() if task.updated_at else None,
-            })
+                }
+            )
 
         return {
             "synced": True,
             "task_count": len(task_list),
             "tasks": task_list,
         }
-
 
     def _format_tool_prompt(
         self,
