@@ -175,7 +175,8 @@ def activate_connection(connection_id: str, db: Session = Depends(get_db)):
 @router.get(
     "/providers/{provider_id}/guide",
     response_model=MCPGuideResponse,
-    summary="MCP 연동 가이드",
+    summary="(Deprecated) MCP 연동 가이드",
+    include_in_schema=False,
     description=(
         "선택한 MCP 제공자(chatgpt/claude/cursor 등)를 fastMCP/에이전트에 붙이는 방법을 OS별 단계로 제공합니다.\n"
         "- 경로 파라미터: `provider_id` = chatgpt | claude | cursor\n"
