@@ -63,13 +63,13 @@ async def cancel_session(
 
 
 @router.post("/{chat_session_id}/store", response_model=StoreFileResponse, status_code=200)
-def store_file(
+async def store_file(
     chat_session_id: int,
     request: StoreFileRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return apply_ai_last_message_to_content_service(current_user.user_id, chat_session_id, request.project_id, db)
+    return await apply_ai_last_message_to_content_service(current_user.user_id, chat_session_id, request.project_id, db)
 
 
 @router.put("/update", response_model=UpdateFileResponse, status_code=200)
