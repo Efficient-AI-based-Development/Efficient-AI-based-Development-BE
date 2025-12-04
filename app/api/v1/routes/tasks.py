@@ -5,13 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.domain.auth import get_current_user
-from app.domain.tasks import (
-    delete_task_service,
-    get_task_service,
-    list_tasks_service,
-    start_development_service,
-    update_task_service,
-)
+from app.domain.tasks import delete_task_service, get_task_service, list_tasks_service, start_development_service, update_task_service
 from app.schemas.task import (
     StartDevelopmentRequest,
     StartDevelopmentResponse,

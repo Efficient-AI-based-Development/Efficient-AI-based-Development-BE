@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.exc import NoResultFound, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -342,7 +342,6 @@ def get_task_by_id(task_id: int, db: Session) -> Task:
     """ID로 태스크 조회"""
     task = db.query(Task).filter(Task.id == task_id).one()
     return task
-
 
 def get_task_list_repo(project_id: int, q: str | None, page: int, per_page: int, db: Session) -> tuple[list[Task], int]:
     """태스크 목록 조회 레포지토리 (페이지네이션)"""

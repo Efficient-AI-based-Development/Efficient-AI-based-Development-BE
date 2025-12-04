@@ -30,7 +30,7 @@ CONNECTION_ID = os.getenv("CONNECTION_ID", "")
 SESSION_ID = os.getenv("SESSION_ID", "")
 
 # MCP 서버 생성
-app = Server("atlas-ai-mcp")
+app = Server("atrina-mcp")
 
 # HTTP 클라이언트
 # MCP API는 인증이 필요 없을 수 있음 (실제 확인 필요)
@@ -348,4 +348,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
