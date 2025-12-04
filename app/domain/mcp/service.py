@@ -14,9 +14,9 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.db import models
 from app.domain.mcp.providers import ChatGPTProvider, ClaudeProvider, CursorProvider
 from app.schemas.mcp import (
+    MCPConfigFileResponse,
     MCPConnectionCreate,
     MCPConnectionData,
-    MCPConfigFileResponse,
     MCPGuideCommand,
     MCPGuidePlatform,
     MCPGuideResponse,
@@ -33,7 +33,6 @@ from app.schemas.mcp import (
     MCPToolItem,
 )
 from app.schemas.task import StartDevelopmentRequest
-
 
 COMMON_TOOLS: list[dict[str, Any]] = [
     {
@@ -317,18 +316,15 @@ class MCPService:
     # Catalog
     # ------------------------------------------------------------------
     _TOOL_REGISTRY: dict[str, list[dict[str, Any]]] = {
-        provider: [dict(tool) for tool in COMMON_TOOLS]
-        for provider in ("chatgpt", "cursor", "claude")
+        provider: [dict(tool) for tool in COMMON_TOOLS] for provider in ("chatgpt", "cursor", "claude")
     }
 
     _RESOURCE_REGISTRY: dict[str, list[dict[str, Any]]] = {
-        provider: [dict(resource) for resource in COMMON_RESOURCES]
-        for provider in ("chatgpt", "cursor", "claude")
+        provider: [dict(resource) for resource in COMMON_RESOURCES] for provider in ("chatgpt", "cursor", "claude")
     }
 
     _PROMPT_REGISTRY: dict[str, list[dict[str, Any]]] = {
-        provider: [dict(prompt) for prompt in COMMON_PROMPTS]
-        for provider in ("chatgpt", "cursor", "claude")
+        provider: [dict(prompt) for prompt in COMMON_PROMPTS] for provider in ("chatgpt", "cursor", "claude")
     }
 
     def list_tools(self, external_session_id: str) -> list[MCPToolItem]:
@@ -410,10 +406,10 @@ class MCPService:
         for task in tasks:
             results.append(
                 {
-                "type": "task",
-                "id": task.id,
-                "title": task.title,
-                "status": task.status,
+                    "type": "task",
+                    "id": task.id,
+                    "title": task.title,
+                    "status": task.status,
                 }
             )
 
@@ -430,10 +426,10 @@ class MCPService:
         for doc in documents:
             results.append(
                 {
-                "type": "document",
-                "id": doc.id,
-                "title": doc.title,
-                "doc_type": doc.type,
+                    "type": "document",
+                    "id": doc.id,
+                    "title": doc.title,
+                    "doc_type": doc.type,
                 }
             )
 
@@ -547,14 +543,14 @@ class MCPService:
                 )
                 .count()
             )
-            
+
             result.append(
-            MCPProjectStatusItem(
-                id=str(project.id),
-                name=project.title,  # Project 모델의 title 필드 사용
-                mcp_status=self._resolve_project_status(project.mcp_connections),
+                MCPProjectStatusItem(
+                    id=str(project.id),
+                    name=project.title,  # Project 모델의 title 필드 사용
+                    mcp_status=self._resolve_project_status(project.mcp_connections),
                     has_active_session=active_sessions_count > 0,
-            )
+                )
             )
         return result
 
@@ -861,7 +857,7 @@ class MCPService:
         self, project_id: int, provider_id: str, api_token: str, user_os: str = "macOS"
     ) -> MCPConfigFileResponse:
         """MCP 설정 파일 (mcp.json) 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
-        project = self._get_project(project_id)
+        project = self._get_project(project_id)  # noqa: F841
 
         # 연결이 없으면 생성
         connection = (
@@ -874,9 +870,7 @@ class MCPService:
         )
 
         if not connection:
-            connection_data = self.create_connection(
-                MCPConnectionCreate(provider_id=provider_id, project_id=str(project_id))
-            )
+            connection_data = self.create_connection(MCPConnectionCreate(provider_id=provider_id, project_id=str(project_id)))
             connection_id = connection_data.connection_id
             self.activate_connection(connection_id)
         else:
@@ -950,7 +944,7 @@ class MCPService:
         self, task_id: int, provider_id: str = "cursor", command_format: str = "vooster"
     ) -> MCPTaskCommandResponse:
         """태스크별 MCP 명령어 생성 - Cursor에서 복사-붙여넣기만 하면 됨.
-        
+
         Args:
             task_id: 태스크 ID
             provider_id: MCP 제공자 (cursor/claude/chatgpt)
@@ -958,27 +952,19 @@ class MCPService:
                 - "vooster": 구조화된 명령어 (예: "atlas-ai를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")
                 - "natural": 자연어 명령어 (예: "AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘")
         """
-        task = (
-            self.db.query(models.Task)
-            .filter(models.Task.id == task_id)
-            .first()
-        )
+        task = self.db.query(models.Task).filter(models.Task.id == task_id).first()
         if not task:
             raise NotFoundError("Task", str(task_id))
 
         # 프로젝트 정보 가져오기
-        project = (
-            self.db.query(models.Project)
-            .filter(models.Project.id == task.project_id)
-            .first()
-        )
+        project = self.db.query(models.Project).filter(models.Project.id == task.project_id).first()
 
         # 명령어 형식에 따라 생성
         if command_format == "vooster":
             # Vooster.ai 스타일: 구조화된 명령어
             project_name = project.title if project else f"프로젝트 {task.project_id}"
             command = f"atlas-ai를 사용해서 {project_name}의 태스크 {task_id} 작업 수행하라"
-            
+
             description = (
                 f"위 명령어를 Cursor의 MCP 채팅창에 붙여넣으세요.\n"
                 f"시스템이 자동으로 다음 정보를 수집하여 코드를 생성합니다:\n"
@@ -1258,11 +1244,7 @@ class MCPService:
         if not isinstance(task_id, int):
             raise ValidationError("start_development tool에는 taskId(int)가 필요합니다.")
 
-        task = (
-            self.db.query(models.Task)
-            .filter(models.Task.id == task_id)
-            .first()
-        )
+        task = self.db.query(models.Task).filter(models.Task.id == task_id).first()
         if not task:
             raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
 
@@ -1287,19 +1269,11 @@ class MCPService:
 
     def _collect_task_context(self, task_id: int) -> dict[str, Any]:
         """태스크와 관련 문서 정보를 수집합니다."""
-        task = (
-            self.db.query(models.Task)
-            .filter(models.Task.id == task_id)
-            .first()
-        )
+        task = self.db.query(models.Task).filter(models.Task.id == task_id).first()
         if not task:
             raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
 
-        project = (
-            self.db.query(models.Project)
-            .filter(models.Project.id == task.project_id)
-            .first()
-        )
+        project = self.db.query(models.Project).filter(models.Project.id == task.project_id).first()
         if not project:
             raise ValidationError(f"프로젝트를 찾을 수 없습니다: {task.project_id}")
 
@@ -1329,11 +1303,7 @@ class MCPService:
         if not isinstance(task_id, int):
             raise ValidationError("generate_code tool에는 taskId(int)가 필요합니다.")
 
-        task = (
-            self.db.query(models.Task)
-            .filter(models.Task.id == task_id)
-            .first()
-        )
+        task = self.db.query(models.Task).filter(models.Task.id == task_id).first()
         if not task:
             raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
 
@@ -1342,16 +1312,16 @@ class MCPService:
 
         # 태스크와 문서 정보 수집
         context = self._collect_task_context(task_id)
-        
+
         # 파일 경로 (선택)
         file_path = input_data.get("filePath")
-        options = input_data.get("options", {})
+        options = input_data.get("options", {})  # noqa: F841
 
         # 코드 생성 프롬프트 구성
         # 태스크 정보를 명확하게 강조
         prompt_parts = [
             "=" * 60,
-            f"# ⚠️ 중요: 다음 태스크를 정확히 구현하세요",
+            "# ⚠️ 중요: 다음 태스크를 정확히 구현하세요",
             "=" * 60,
             "",
             f"## 태스크 제목: {task.title}",
@@ -1365,61 +1335,71 @@ class MCPService:
         ]
 
         if context.get("prd_doc") and context["prd_doc"].content_md:
-            prompt_parts.extend([
-                "## PRD 문서",
-                context["prd_doc"].content_md[:1000],  # 일부만 포함
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## PRD 문서",
+                    context["prd_doc"].content_md[:1000],  # 일부만 포함
+                    "",
+                ]
+            )
 
         if context.get("srs_doc") and context["srs_doc"].content_md:
-            prompt_parts.extend([
-                "## SRS 문서",
-                context["srs_doc"].content_md[:1000],
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## SRS 문서",
+                    context["srs_doc"].content_md[:1000],
+                    "",
+                ]
+            )
 
         # USER_STORY 문서들도 포함
         user_story_docs = context.get("user_story_docs", [])
         if user_story_docs:
-            prompt_parts.extend([
-                "## USER_STORY 문서",
-            ])
+            prompt_parts.extend(
+                [
+                    "## USER_STORY 문서",
+                ]
+            )
             for us_doc in user_story_docs[:3]:  # 최대 3개만 포함
                 if us_doc.content_md:
-                    prompt_parts.extend([
-                        f"### {us_doc.title}",
-                        us_doc.content_md[:500],  # 각 스토리 500자 제한
-                        "",
-                    ])
+                    prompt_parts.extend(
+                        [
+                            f"### {us_doc.title}",
+                            us_doc.content_md[:500],  # 각 스토리 500자 제한
+                            "",
+                        ]
+                    )
 
         if file_path:
-            prompt_parts.extend([
-                f"## 생성할 파일",
-                f"경로: {file_path}",
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## 생성할 파일",
+                    f"경로: {file_path}",
+                    "",
+                ]
+            )
 
         prompt = "\n".join(prompt_parts)
 
         # 수집된 정보를 요약하여 즉시 반환
         # 실제 코드 생성은 Cursor AI가 프롬프트를 받아서 수행
-        
+
         # 수집된 정보 요약
         summary_parts = [
             f"✅ 태스크 정보 수집 완료: {task.title}",
             f"✅ 프로젝트: {context['project'].title}",
         ]
-        
+
         if context.get("prd_doc"):
             summary_parts.append(f"✅ PRD 문서: {context['prd_doc'].title} ({len(context['prd_doc'].content_md or '')} 문자)")
         else:
             summary_parts.append("⚠️ PRD 문서: 없음")
-        
+
         if context.get("srs_doc"):
             summary_parts.append(f"✅ SRS 문서: {context['srs_doc'].title} ({len(context['srs_doc'].content_md or '')} 문자)")
         else:
             summary_parts.append("⚠️ SRS 문서: 없음")
-        
+
         user_story_count = len(context.get("user_story_docs", []))
         if user_story_count > 0:
             summary_parts.append(f"✅ USER_STORY 문서: {user_story_count}개")
@@ -1427,9 +1407,9 @@ class MCPService:
                 summary_parts.append(f"   - {us_doc.title}")
         else:
             summary_parts.append("⚠️ USER_STORY 문서: 없음")
-        
+
         summary = "\n".join(summary_parts)
-        
+
         # 프롬프트를 결과에 포함하여 Cursor가 사용할 수 있도록
         # Cursor가 바로 사용할 수 있도록 더 명확한 형식으로 구성
         result_data = {
@@ -1465,11 +1445,7 @@ class MCPService:
         if not isinstance(task_id, int):
             raise ValidationError("review_code tool에는 taskId(int)가 필요합니다.")
 
-        task = (
-            self.db.query(models.Task)
-            .filter(models.Task.id == task_id)
-            .first()
-        )
+        task = self.db.query(models.Task).filter(models.Task.id == task_id).first()
         if not task:
             raise ValidationError(f"태스크를 찾을 수 없습니다: {task_id}")
 
@@ -1478,7 +1454,7 @@ class MCPService:
 
         # 태스크와 문서 정보 수집
         context = self._collect_task_context(task_id)
-        
+
         file_paths = input_data.get("filePaths", [])
 
         # 코드 리뷰 프롬프트 구성
@@ -1491,43 +1467,55 @@ class MCPService:
         ]
 
         if context.get("prd_doc") and context["prd_doc"].content_md:
-            prompt_parts.extend([
-                "## PRD 기준",
-                context["prd_doc"].content_md[:1000],
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## PRD 기준",
+                    context["prd_doc"].content_md[:1000],
+                    "",
+                ]
+            )
 
         if context.get("srs_doc") and context["srs_doc"].content_md:
-            prompt_parts.extend([
-                "## SRS 기준",
-                context["srs_doc"].content_md[:1000],
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## SRS 기준",
+                    context["srs_doc"].content_md[:1000],
+                    "",
+                ]
+            )
 
         # USER_STORY 문서들도 포함
         user_story_docs = context.get("user_story_docs", [])
         if user_story_docs:
-            prompt_parts.extend([
-                "## USER_STORY 기준",
-            ])
+            prompt_parts.extend(
+                [
+                    "## USER_STORY 기준",
+                ]
+            )
             for us_doc in user_story_docs[:3]:  # 최대 3개만 포함
                 if us_doc.content_md:
-                    prompt_parts.extend([
-                        f"### {us_doc.title}",
-                        us_doc.content_md[:500],  # 각 스토리 500자 제한
-                        "",
-                    ])
+                    prompt_parts.extend(
+                        [
+                            f"### {us_doc.title}",
+                            us_doc.content_md[:500],  # 각 스토리 500자 제한
+                            "",
+                        ]
+                    )
 
         if file_paths:
-            prompt_parts.extend([
-                "## 리뷰할 파일",
-                "\n".join(f"- {fp}" for fp in file_paths),
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## 리뷰할 파일",
+                    "\n".join(f"- {fp}" for fp in file_paths),
+                    "",
+                ]
+            )
 
-        prompt_parts.extend([
-            "위 태스크와 문서를 기준으로 코드를 리뷰하고, 개선 사항과 이슈를 제안해주세요.",
-        ])
+        prompt_parts.extend(
+            [
+                "위 태스크와 문서를 기준으로 코드를 리뷰하고, 개선 사항과 이슈를 제안해주세요.",
+            ]
+        )
 
         prompt = "\n".join(prompt_parts)
 
@@ -1581,12 +1569,12 @@ class MCPService:
         for task in tasks:
             task_list.append(
                 {
-                "id": task.id,
-                "title": task.title,
-                "status": task.status,
-                "type": task.type,
-                "priority": task.priority,
-                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+                    "id": task.id,
+                    "title": task.title,
+                    "status": task.status,
+                    "type": task.type,
+                    "priority": task.priority,
+                    "updated_at": task.updated_at.isoformat() if task.updated_at else None,
                 }
             )
 

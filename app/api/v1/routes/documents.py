@@ -30,9 +30,9 @@ def create_document(
     db: Session = Depends(get_db),
 ):
     """문서 생성
-    
+
     POST /api/v1/projects/{project_id}/docs
-    
+
     프로젝트에 PRD, SRS, USER_STORY 문서를 생성합니다.
     """
     return create_document_service(project_id=project_id, user_id=current_user.user_id, request=request, db=db)
