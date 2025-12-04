@@ -475,7 +475,7 @@ def generate_mcp_config_file(
         "- `task_id`: 태스크 ID\n"
         "- `provider_id`: MCP 제공자 (선택, 기본값: cursor)\n"
         "- `format`: 명령어 형식 (선택, 기본값: vooster)\n"
-        "  - `vooster`: 구조화된 명령어 (예: \"atlas-ai를 사용해서 프로젝트 148의 태스크 236 작업 수행하라\")\n"
+        "  - `vooster`: 구조화된 명령어 (예: \"atrina를 사용해서 프로젝트 148의 태스크 236 작업 수행하라\")\n"
         "  - `natural`: 자연어 명령어 (예: \"AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘\")\n\n"
         "**인증:**\n"
         "- Authorization 헤더에서 Bearer 토큰을 자동으로 읽어 사용합니다.\n"
