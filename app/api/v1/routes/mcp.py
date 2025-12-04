@@ -3,18 +3,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db
+from app.core.config import settings
 from app.db import models
+from app.db.database import get_db
 from app.db.models import User
 from app.domain.auth import get_current_user
 from app.domain.mcp import MCPService
-from app.core.config import settings
 from app.schemas.mcp import (
+    MCPConfigFileResponse,
     MCPConnectionCloseResponse,
     MCPConnectionCreate,
     MCPConnectionListResponse,
     MCPConnectionResponse,
-    MCPConfigFileResponse,
     MCPGuideResponse,
     MCPProjectStatusResponse,
     MCPPromptListResponse,
@@ -446,13 +446,13 @@ def generate_mcp_config_file(
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
-    
+
     # 사용자 토큰 생성 (MCP 어댑터에서 사용할 토큰)
     from app.domain.auth import create_access_token
-    
+
     # 사용자 토큰 생성 (또는 기존 토큰 재사용)
     api_token = create_access_token(current_user.user_id)
-    
+
     # 요청 base URL을 fallback으로 사용 (환경변수 미설정 시)
     base_url = str(request.base_url).rstrip("/") if request else None
     data = _service(db).generate_mcp_config_file(project_id, provider_id, api_token, user_os, base_url)
@@ -474,8 +474,8 @@ def generate_mcp_config_file(
         "- `task_id`: 태스크 ID\n"
         "- `provider_id`: MCP 제공자 (선택, 기본값: cursor)\n"
         "- `format`: 명령어 형식 (선택, 기본값: vooster)\n"
-        "  - `vooster`: 구조화된 명령어 (예: \"atrina를 사용해서 프로젝트 148의 태스크 236 작업 수행하라\")\n"
-        "  - `natural`: 자연어 명령어 (예: \"AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘\")\n\n"
+        '  - `vooster`: 구조화된 명령어 (예: "atrina를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")\n'
+        '  - `natural`: 자연어 명령어 (예: "AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘")\n\n'
         "**인증:**\n"
         "- Authorization 헤더에서 Bearer 토큰을 자동으로 읽어 사용합니다.\n"
     ),
@@ -492,10 +492,10 @@ def generate_task_command(
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
-    
+
     # 명령어 형식 검증
     if format not in {"vooster", "natural"}:
         raise HTTPException(status_code=400, detail="format must be 'vooster' or 'natural'")
-    
+
     data = _service(db).generate_task_command(task_id, provider_id, command_format=format)
     return data
