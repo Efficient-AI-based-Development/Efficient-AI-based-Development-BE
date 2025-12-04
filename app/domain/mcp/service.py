@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session  # type: ignore
@@ -277,7 +279,7 @@ class MCPService:
         try:
             session = models.MCPSession(
                 connection_id=connection.id,
-                    project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
+                project_id=connection.project_id,  # 연결의 프로젝트 ID 사용
                 status="ready",
                 context=self._dump_json({}),
                 metadata_json=self._dump_json(payload.metadata),
@@ -885,26 +887,37 @@ class MCPService:
         # 백엔드 URL (환경 변수 또는 기본값)
         backend_url = settings.BACKEND_BASE_URL or "http://localhost:8000"
 
-        # 프로젝트 루트 경로 (사용자가 수정해야 함 - 플레이스홀더 사용)
-        # 실제 배포 시에는 사용자가 프로젝트 루트 경로로 교체해야 함
-        project_root_placeholder = "/path/to/Efficient-AI-based-Development-BE"
-        adapter_path = f"{project_root_placeholder}/mcp_adapter/server.py"
-        python_path = f"{project_root_placeholder}/.venv/bin/python3"
+        project_root = Path(__file__).resolve().parents[3]
+        adapter_path = project_root / "mcp_adapter" / "server.py"
+        python_candidates = [
+            project_root / ".venv" / "bin" / "python3",
+            project_root / ".venv" / "Scripts" / "python.exe",
+            Path(sys.executable),
+        ]
+        python_path = next((candidate for candidate in python_candidates if candidate.exists()), Path("python3"))
+        if not adapter_path.exists():
+            adapter_path = Path("mcp_adapter/server.py")
 
-        # OS별 설정 파일 경로
-        if user_os.lower() == "windows":
+        os_lower = user_os.lower()
+        if "win" in os_lower:
             install_path = "%APPDATA%\\Cursor\\User\\globalStorage\\mcp.json"
-            python_path = python_path.replace("/", "\\")
-            adapter_path = adapter_path.replace("/", "\\")
-        else:  # macOS, Linux
+            python_path_str = str(python_path).replace("/", "\\")
+            adapter_path_str = str(adapter_path).replace("/", "\\")
+        elif "linux" in os_lower:
+            install_path = "~/.config/Cursor/User/globalStorage/mcp.json"
+            python_path_str = str(python_path.resolve() if isinstance(python_path, Path) else python_path)
+            adapter_path_str = str(adapter_path.resolve() if adapter_path.exists() else adapter_path)
+        else:  # macOS
             install_path = "~/Library/Application Support/Cursor/User/globalStorage/mcp.json"
+            python_path_str = str(python_path.resolve() if isinstance(python_path, Path) else python_path)
+            adapter_path_str = str(adapter_path.resolve() if adapter_path.exists() else adapter_path)
 
         # mcp.json 파일 내용 생성
         mcp_config = {
             "mcpServers": {
                 "atlas-ai": {
-                    "command": python_path,
-                    "args": [adapter_path],
+                    "command": python_path_str,
+                    "args": [adapter_path_str],
                     "env": {
                         "BACKEND_URL": backend_url,
                         "API_TOKEN": api_token,
@@ -919,13 +932,11 @@ class MCPService:
 
         # 설정 방법 안내 (더 친화적으로)
         instructions = [
-            "1. 아래 설정 파일 내용을 전체 복사하세요",
+            "1. 아래 설정 파일 내용을 전체 복사하세요 (프로젝트 경로와 Python은 자동으로 채워집니다)",
             f"2. {install_path} 파일을 열거나 생성하세요",
             "3. 복사한 내용을 붙여넣고 저장하세요",
             "4. ⚠️ 중요: Cursor를 완전히 종료하고 다시 시작하세요",
             "5. Cursor에서 MCP 연결이 활성화되었는지 확인하세요",
-            "",
-            "💡 팁: 프로젝트 루트 경로(/path/to/Efficient-AI-based-Development-BE)를 실제 경로로 수정해야 합니다.",
         ]
 
         return MCPConfigFileResponse(

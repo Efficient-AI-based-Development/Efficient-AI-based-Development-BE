@@ -1,70 +1,21 @@
 """Task API routes."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.domain.auth import get_current_user
-from app.domain.tasks import (
-    create_task_service,
-    delete_task_service,
-    get_task_service,
-    list_tasks_service,
-    start_development_command_service,
-    start_development_service,
-    task_insights_service,
-    update_task_service,
-)
+from app.domain.tasks import delete_task_service, get_task_service, list_tasks_service, start_development_service, update_task_service
 from app.schemas.task import (
-    StartDevelopmentCommandResponse,
     StartDevelopmentRequest,
     StartDevelopmentResponse,
-    TaskCreate,
     TaskDeleteResponse,
     TaskDetailResponse,
-    TaskInsightResponse,
     TaskListResponse,
     TaskUpdate,
 )
 
 router = APIRouter(tags=["tasks"], dependencies=[Depends(get_current_user)])
-
-
-@router.get("/tasks/insights", response_model=TaskInsightResponse)
-def task_insights(project_id: int = Query(...), db: Session = Depends(get_db)):
-    """프로젝트 태스크 인사이트 (완료 확률/최근 업데이트)
-
-    GET /api/v1/tasks/insights?project_id=1
-
-    예시 응답:
-    ```json
-    {
-      "task_completed_probability": 42.5,
-      "task_last_updated": "2024-12-01T12:30:00",
-      "QA_test": 0
-    }
-    ```
-    """
-    return task_insights_service(project_id, db)
-
-
-@router.post("/projects/{project_id}/tasks", response_model=TaskDetailResponse, status_code=201)
-def create_task(project_id: int, task: TaskCreate, db: Session = Depends(get_db)):
-    """태스크 생성
-
-    POST /api/v1/projects/{project_id}/tasks
-
-    특정 프로젝트 내 새로운 Task 생성 (타입: docs/design/dev). AI 또는 사용자가 생성.
-    예시 요청:
-    ```json
-    {
-      "title": "로그인 페이지 구현",
-      "type": "dev",
-      "priority": 5
-    }
-    ```
-    """
-    return create_task_service(project_id, task, db)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TaskListResponse)
@@ -165,29 +116,3 @@ def start_development(task_id: int, request: StartDevelopmentRequest, db: Sessio
     ```
     """
     return start_development_service(task_id, request, db)
-
-
-@router.get("/tasks/{task_id}/start-development/command", response_model=StartDevelopmentCommandResponse)
-def get_start_development_command(task_id: int, provider_id: str | None = Query(None), db: Session = Depends(get_db)):
-    """Start Development를 CLI에서 실행할 수 있는 curl 명령어 반환
-
-    GET /api/v1/tasks/{task_id}/start-development/command
-
-    - providerId를 지정하면 해당 MCP 제공자(예: claude)로 실행하는 명령어를 돌려줍니다.
-    - 응답의 command를 터미널에 붙여넣어 실행하면 runId/sessionId가 백엔드에 기록됩니다.
-
-    예시 응답:
-    ```json
-    {
-      "command": "curl -s -X POST \"https://api.example.com/api/v1/tasks/3/start-development\"
-      -H \"Content-Type: application/json\" -H \"Authorization: Bearer <API_TOKEN>\"
-      -d '{\"providerId\":\"claude\",\"options\":{\"mode\":\"impl\",\"temperature\":0.2}}'",
-
-      "providerId": "claude",
-      "taskId": 3,
-      "projectId": 41,
-      "note": "터미널에 붙여넣어 실행하세요. <API_TOKEN>과 <BACKEND_URL>은 실제 값으로 교체 필요."
-    }
-    ```
-    """
-    return start_development_command_service(task_id, provider_id, db)
