@@ -1,6 +1,6 @@
 """MCP (Model Context Protocol) API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -175,7 +175,8 @@ def activate_connection(connection_id: str, db: Session = Depends(get_db)):
 @router.get(
     "/providers/{provider_id}/guide",
     response_model=MCPGuideResponse,
-    summary="MCP 연동 가이드",
+    summary="(Deprecated) MCP 연동 가이드",
+    include_in_schema=False,
     description=(
         "선택한 MCP 제공자(chatgpt/claude/cursor 등)를 fastMCP/에이전트에 붙이는 방법을 OS별 단계로 제공합니다.\n"
         "- 경로 파라미터: `provider_id` = chatgpt | claude | cursor\n"
@@ -438,6 +439,7 @@ def generate_mcp_config_file(
     current_user: User = Depends(get_current_user),
     provider_id: str = Query(default="cursor", description="MCP 제공자 (cursor/claude/chatgpt)"),
     user_os: str = Query(default="macOS", description="운영체제 (macOS/Windows)"),
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     """MCP 설정 파일 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
@@ -452,7 +454,9 @@ def generate_mcp_config_file(
     # 사용자 토큰 생성 (또는 기존 토큰 재사용)
     api_token = create_access_token(current_user.user_id)
     
-    data = _service(db).generate_mcp_config_file(project_id, provider_id, api_token, user_os)
+    # 요청 base URL을 fallback으로 사용 (환경변수 미설정 시)
+    base_url = str(request.base_url).rstrip("/") if request else None
+    data = _service(db).generate_mcp_config_file(project_id, provider_id, api_token, user_os, base_url)
     return data
 
 

@@ -858,7 +858,12 @@ class MCPService:
     # ------------------------------------------------------------------
 
     def generate_mcp_config_file(
-        self, project_id: int, provider_id: str, api_token: str, user_os: str = "macOS"
+        self,
+        project_id: int,
+        provider_id: str,
+        api_token: str,
+        user_os: str = "macOS",
+        backend_url: str | None = None,
     ) -> MCPConfigFileResponse:
         """MCP 설정 파일 (mcp.json) 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
         project = self._get_project(project_id)
@@ -884,19 +889,17 @@ class MCPService:
             if connection.status != "active":
                 self.activate_connection(connection_id)
 
-        # 백엔드 URL (환경 변수 또는 기본값)
-        backend_url = settings.BACKEND_BASE_URL or "http://localhost:8000"
+        # 백엔드 URL (환경 변수 → 요청 base URL → 기본값)
+        backend_url = backend_url or settings.BACKEND_BASE_URL or "http://localhost:8000"
 
         project_root = Path(__file__).resolve().parents[3]
-        adapter_path = project_root / "mcp_adapter" / "server.py"
+        adapter_path = (project_root / "mcp_adapter" / "server.py").resolve()
         python_candidates = [
             project_root / ".venv" / "bin" / "python3",
             project_root / ".venv" / "Scripts" / "python.exe",
             Path(sys.executable),
         ]
         python_path = next((candidate for candidate in python_candidates if candidate.exists()), Path("python3"))
-        if not adapter_path.exists():
-            adapter_path = Path("mcp_adapter/server.py")
 
         os_lower = user_os.lower()
         if "win" in os_lower:
@@ -906,11 +909,11 @@ class MCPService:
         elif "linux" in os_lower:
             install_path = "~/.config/Cursor/User/globalStorage/mcp.json"
             python_path_str = str(python_path.resolve() if isinstance(python_path, Path) else python_path)
-            adapter_path_str = str(adapter_path.resolve() if adapter_path.exists() else adapter_path)
+            adapter_path_str = str(adapter_path)
         else:  # macOS
             install_path = "~/Library/Application Support/Cursor/User/globalStorage/mcp.json"
             python_path_str = str(python_path.resolve() if isinstance(python_path, Path) else python_path)
-            adapter_path_str = str(adapter_path.resolve() if adapter_path.exists() else adapter_path)
+            adapter_path_str = str(adapter_path)
 
         # mcp.json 파일 내용 생성
         mcp_config = {
