@@ -517,7 +517,7 @@ def _ensure_enum(ft: FileType | str) -> FileType:
 
 
 ######################################### SERVICE #############################################
-def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, project_id: int, db: Session):
+async def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, project_id: int, db: Session):
     cur_chat_session = (
         db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id).one_or_none()
     )
@@ -529,7 +529,7 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
 
     if station.last_doc is None:
         raise _http_404("No create File for this session.")
-    updated_obj = store_document_content(user_id, cur_chat_session, project_id, station.last_doc, db)
+    updated_obj = await store_document_content(user_id, cur_chat_session, project_id, station.last_doc, db)
     db.commit()
 
     if updated_obj is None:  # Task 같은 경우에는 새로 생성되기 때문에 X
@@ -592,7 +592,7 @@ async def update_doc_file_service(user_id: str, project_id: int, db: Session):
         db.refresh(data)
 
 
-def store_document_content(
+async def store_document_content(
     user_id: str,
     cur_chat_session: ChatSession,
     project_id: int,
@@ -673,6 +673,7 @@ def store_document_content(
         )
 
         db.add(data)
+        await update_doc_file_service(user_id, project_id, db)
         return data
 
     else:
