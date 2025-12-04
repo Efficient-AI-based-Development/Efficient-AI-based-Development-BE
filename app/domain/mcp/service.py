@@ -858,7 +858,12 @@ class MCPService:
     # ------------------------------------------------------------------
 
     def generate_mcp_config_file(
-        self, project_id: int, provider_id: str, api_token: str, user_os: str = "macOS"
+        self,
+        project_id: int,
+        provider_id: str,
+        api_token: str,
+        user_os: str = "macOS",
+        backend_url: str | None = None,
     ) -> MCPConfigFileResponse:
         """MCP 설정 파일 (mcp.json) 생성 - 사용자가 복사-붙여넣기만 하면 됨."""
         project = self._get_project(project_id)
@@ -884,19 +889,17 @@ class MCPService:
             if connection.status != "active":
                 self.activate_connection(connection_id)
 
-        # 백엔드 URL (환경 변수 또는 기본값)
-        backend_url = settings.BACKEND_BASE_URL or "http://localhost:8000"
+        # 백엔드 URL (환경 변수 → 요청 base URL → 기본값)
+        backend_url = backend_url or settings.BACKEND_BASE_URL or "http://localhost:8000"
 
         project_root = Path(__file__).resolve().parents[3]
-        adapter_path = project_root / "mcp_adapter" / "server.py"
+        adapter_path = (project_root / "mcp_adapter" / "server.py").resolve()
         python_candidates = [
             project_root / ".venv" / "bin" / "python3",
             project_root / ".venv" / "Scripts" / "python.exe",
             Path(sys.executable),
         ]
         python_path = next((candidate for candidate in python_candidates if candidate.exists()), Path("python3"))
-        if not adapter_path.exists():
-            adapter_path = Path("mcp_adapter/server.py")
 
         os_lower = user_os.lower()
         if "win" in os_lower:
@@ -906,16 +909,16 @@ class MCPService:
         elif "linux" in os_lower:
             install_path = "~/.config/Cursor/User/globalStorage/mcp.json"
             python_path_str = str(python_path.resolve() if isinstance(python_path, Path) else python_path)
-            adapter_path_str = str(adapter_path.resolve() if adapter_path.exists() else adapter_path)
+            adapter_path_str = str(adapter_path)
         else:  # macOS
             install_path = "~/Library/Application Support/Cursor/User/globalStorage/mcp.json"
             python_path_str = str(python_path.resolve() if isinstance(python_path, Path) else python_path)
-            adapter_path_str = str(adapter_path.resolve() if adapter_path.exists() else adapter_path)
+            adapter_path_str = str(adapter_path)
 
         # mcp.json 파일 내용 생성
         mcp_config = {
             "mcpServers": {
-                "atlas-ai": {
+                "atrina": {
                     "command": python_path_str,
                     "args": [adapter_path_str],
                     "env": {
@@ -955,7 +958,7 @@ class MCPService:
             task_id: 태스크 ID
             provider_id: MCP 제공자 (cursor/claude/chatgpt)
             command_format: 명령어 형식 ("vooster" 또는 "natural")
-                - "vooster": 구조화된 명령어 (예: "atlas-ai를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")
+                - "vooster": 구조화된 명령어 (예: "atrina를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")
                 - "natural": 자연어 명령어 (예: "AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘")
         """
         task = (
@@ -977,7 +980,7 @@ class MCPService:
         if command_format == "vooster":
             # Vooster.ai 스타일: 구조화된 명령어
             project_name = project.title if project else f"프로젝트 {task.project_id}"
-            command = f"atlas-ai를 사용해서 {project_name}의 태스크 {task_id} 작업 수행하라"
+            command = f"atrina를 사용해서 {project_name}의 태스크 {task_id} 작업 수행하라"
             
             description = (
                 f"위 명령어를 Cursor의 MCP 채팅창에 붙여넣으세요.\n"

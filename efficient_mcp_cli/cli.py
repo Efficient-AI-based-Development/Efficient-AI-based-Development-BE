@@ -108,7 +108,7 @@ def init_project(
             # MCP 설정 파일 내용 생성
             mcp_config = {
                 "mcpServers": {
-                    "atlas-ai": {
+                    "atrina": {
                         "command": str(python_path.resolve()),
                         "args": [str(adapter_path.resolve())],
                         "env": {
@@ -131,8 +131,8 @@ def init_project(
                 python_path_str = str(python_path.resolve())
                 adapter_path_str = str(adapter_path.resolve())
             
-            mcp_config["mcpServers"]["atlas-ai"]["command"] = python_path_str
-            mcp_config["mcpServers"]["atlas-ai"]["args"] = [adapter_path_str]
+            mcp_config["mcpServers"]["atrina"]["command"] = python_path_str
+            mcp_config["mcpServers"]["atrina"]["args"] = [adapter_path_str]
             
             config_content = json.dumps(mcp_config, indent=2, ensure_ascii=False)
             
@@ -156,7 +156,7 @@ def init_project(
             typer.echo(f"   위치: {install_path}")
             typer.echo(f"\n📋 다음 단계:")
             typer.echo(f"   1. Cursor를 완전히 종료하고 다시 시작하세요")
-            typer.echo(f"   2. Cursor에서 MCP 서버 'atlas-ai'가 활성화되었는지 확인하세요")
+            typer.echo(f"   2. Cursor에서 MCP 서버 'atrina'가 활성화되었는지 확인하세요")
             typer.echo(f"   3. 태스크 명령어를 복사하여 Cursor MCP 채팅창에 붙여넣으세요")
             
         except Exception as e:
@@ -528,7 +528,7 @@ def setup_mcp(
     typer.echo("=" * 60)
     typer.echo("\n📋 다음 단계:")
     typer.echo("   1. Cursor를 완전히 종료하고 다시 시작하세요")
-    typer.echo("   2. Cursor에서 MCP 서버 'atlas-ai'가 활성화되었는지 확인하세요")
+    typer.echo("   2. Cursor에서 MCP 서버 'atrina'가 활성화되었는지 확인하세요")
     typer.echo("   3. 태스크 명령어 생성:")
     typer.echo(f"      efficient-mcp task-command <태스크_ID>")
     typer.echo("   4. 생성된 명령어를 Cursor MCP 채팅창에 붙여넣으세요")
@@ -536,5 +536,3 @@ def setup_mcp(
 
 if __name__ == "__main__":  # pragma: no cover
     app()
-
-
