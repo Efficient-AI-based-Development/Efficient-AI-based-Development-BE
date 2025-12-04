@@ -918,7 +918,7 @@ class MCPService:
         # mcp.json 파일 내용 생성
         mcp_config = {
             "mcpServers": {
-                "atlas-ai": {
+                "atrina": {
                     "command": python_path_str,
                     "args": [adapter_path_str],
                     "env": {
@@ -958,7 +958,7 @@ class MCPService:
             task_id: 태스크 ID
             provider_id: MCP 제공자 (cursor/claude/chatgpt)
             command_format: 명령어 형식 ("vooster" 또는 "natural")
-                - "vooster": 구조화된 명령어 (예: "atlas-ai를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")
+                - "vooster": 구조화된 명령어 (예: "atrina를 사용해서 프로젝트 148의 태스크 236 작업 수행하라")
                 - "natural": 자연어 명령어 (예: "AI 기반 효율적 개발 플랫폼의 MCP Quick Test 구현해줘")
         """
         task = (
@@ -980,7 +980,7 @@ class MCPService:
         if command_format == "vooster":
             # Vooster.ai 스타일: 구조화된 명령어
             project_name = project.title if project else f"프로젝트 {task.project_id}"
-            command = f"atlas-ai를 사용해서 {project_name}의 태스크 {task_id} 작업 수행하라"
+            command = f"atrina를 사용해서 {project_name}의 태스크 {task_id} 작업 수행하라"
             
             description = (
                 f"위 명령어를 Cursor의 MCP 채팅창에 붙여넣으세요.\n"
