@@ -47,7 +47,7 @@ async def send_message(
     return await send_message_service(chat_session_id, request, current_user, db)
 
 @router.get("/{chat_session_id}/tempDocument")
-async def print_last_temp_document(chat_session_id: int):
+async def print_last_temp_document(chat_session_id: int, current_user: User = Depends(get_current_user)):
     return print_last_temp_document_service(chat_session_id)
 
 @router.post("/{chat_session_id}/cancel", status_code=202)
