@@ -6,24 +6,19 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from fastapi import HTTPException, Query
-from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
+from fastapi import HTTPException
+from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from app.core.config import settings
 from app.db.models import Document, MCPConnection, MCPRun, MCPSession, Project, Task
 from app.domain.mcp import MCPService
 from app.schemas.mcp import MCPConnectionCreate, MCPRunCreate, MCPSessionCreate
-from app.schemas.project import PaginationParams
 from app.schemas.task import (
-    StartDevelopmentCommandResponse,
     StartDevelopmentRequest,
     StartDevelopmentResponse,
-    TaskCreate,
     TaskDeleteResponse,
     TaskDetailResponse,
-    TaskInsightResponse,
     TaskListResponse,
     TaskResponse,
     TaskUpdate,
@@ -43,45 +38,6 @@ class StartDevelopmentContext:
     srs_doc: Document | None
     user_story_docs: list[Document]
     recent_runs: list[MCPRun]
-
-
-def task_insights_service(project_id: int, db: Session) -> TaskInsightResponse:
-    proj = db.query(Project).filter(Project.id == project_id).one_or_none()
-    if proj is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-    tasks = db.query(Task).filter(Task.project_id == project_id).order_by(Task.updated_at.desc()).all()
-    if len(tasks) == 0:
-        return TaskInsightResponse(task_completed_probability=0, task_last_updated=None, QA_test=None)
-
-    updated_at = tasks[0].updated_at
-    tasks_num = len(tasks)
-    completed = sum(1 for task in tasks if task.status == "done")
-    probability = round((completed / tasks_num * 100), 1)
-    return TaskInsightResponse(task_completed_probability=probability, task_last_updated=updated_at, QA_test=0)
-
-
-def create_task_service(project_id: int, request: TaskCreate, db: Session) -> TaskDetailResponse:
-    """태스크 생성 서비스"""
-    try:
-        # 프로젝트 존재 여부 확인
-        project = db.query(Project).filter(Project.id == project_id).first()
-        if not project:
-            raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
-
-        task = create_task_repo(project_id, request, db)
-        db.commit()
-        db.refresh(task)
-
-        task_response = to_task_response(task)
-        return TaskDetailResponse(data=task_response)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Task creation failed")
-    except SQLAlchemyError as e:
-        db.rollback()
-        print("DB Error:", e)
-        traceback.print_exc()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="database error")
 
 
 def get_task_service(task_id: int, db: Session) -> TaskDetailResponse:
@@ -213,33 +169,6 @@ def start_development_service(task_id: int, request: StartDevelopmentRequest, db
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Start Development 실패: {str(e)}",
         )
-
-
-def start_development_command_service(task_id: int, provider_id: str | None, db: Session) -> StartDevelopmentCommandResponse:
-    """Start Development용 CLI 명령어를 생성해 반환."""
-    task = get_task_by_id(task_id, db)
-    project = db.query(Project).filter(Project.id == task.project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail=f"Project with ID {task.project_id} not found")
-
-    backend_url = settings.BACKEND_BASE_URL or "<BACKEND_URL>"
-    provider = provider_id or "claude"
-
-    command = (
-        f'curl -s -X POST "{backend_url}/api/v1/tasks/{task_id}/start-development" '
-        '-H "Content-Type: application/json" '
-        '-H "Authorization: Bearer <API_TOKEN>" '
-        f'-d \'{{"providerId":"{provider}","options":{{"mode":"impl","temperature":0.2}}}}\''
-    )
-
-    note = "터미널에 붙여넣어 실행하세요. <API_TOKEN>과 <BACKEND_URL>은 실제 값으로 교체 필요."
-    return StartDevelopmentCommandResponse(
-        command=command,
-        provider_id=provider,
-        task_id=task_id,
-        project_id=project.id,
-        note=note,
-    )
 
 
 def _collect_start_development_context(task_id: int, db: Session) -> StartDevelopmentContext:
@@ -406,44 +335,12 @@ def _summarize_recent_run(run: MCPRun) -> str:
     return f"- [{timestamp}] status={run.status} :: {output_preview}"
 
 
-def get_pagination_params(
-    q: str | None = Query(None, description="검색어"),
-    page: int = Query(1, ge=1, description="페이지 번호"),
-    page_size: int = Query(10, ge=10, le=50, description="페이지 크기"),
-) -> PaginationParams:
-    """페이지네이션 파라미터 생성"""
-    if page > page_size:
-        raise HTTPException(
-            status_code=400,
-            detail=(f"페이지 번호(page)는 페이지 크기(page_size)보다 클 수 없습니다." f" (page={page}, page_size={page_size})",),
-        )
-    return PaginationParams(q=q, page_size=page_size, page=page)
-
-
 ############################ REPO 관리 ############################
 
 
 def get_task_by_id(task_id: int, db: Session) -> Task:
     """ID로 태스크 조회"""
     task = db.query(Task).filter(Task.id == task_id).one()
-    return task
-
-
-def create_task_repo(project_id: int, request: TaskCreate, db: Session) -> Task:
-    """태스크 생성 레포지토리"""
-    data = request.model_dump()
-
-    # JSON 필드 처리
-    if "tags" in data and data["tags"]:
-        data["tags"] = json.dumps(data["tags"], ensure_ascii=False)
-    else:
-        data["tags"] = None
-
-    # result_files는 생성 시에는 None
-    data.pop("result_files", None)
-
-    task = Task(project_id=project_id, **data)
-    db.add(task)
     return task
 
 

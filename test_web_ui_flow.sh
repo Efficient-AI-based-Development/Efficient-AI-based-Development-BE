@@ -82,8 +82,8 @@ if echo "$CONFIG_RESPONSE" | grep -q "configContent"; then
         echo -e "${RED}   ❌ API_TOKEN이 포함되어 있지 않습니다${NC}"
     fi
     
-    if echo "$CONFIG_CONTENT" | grep -q "atlas-ai"; then
-        echo -e "${GREEN}   ✅ MCP 서버 이름이 'atlas-ai'로 설정되어 있습니다${NC}"
+    if echo "$CONFIG_CONTENT" | grep -q "atrina"; then
+        echo -e "${GREEN}   ✅ MCP 서버 이름이 'atrina'로 설정되어 있습니다${NC}"
     else
         echo -e "${RED}   ❌ MCP 서버 이름이 올바르지 않습니다${NC}"
     fi
@@ -122,10 +122,10 @@ if echo "$COMMAND_RESPONSE" | grep -q "command"; then
     echo "   생성된 명령어:"
     echo "   $COMMAND"
     
-    if echo "$COMMAND" | grep -q "atlas-ai"; then
-        echo -e "${GREEN}   ✅ 명령어에 'atlas-ai'가 포함되어 있습니다${NC}"
+    if echo "$COMMAND" | grep -q "atrina"; then
+        echo -e "${GREEN}   ✅ 명령어에 'atrina'가 포함되어 있습니다${NC}"
     else
-        echo -e "${RED}   ❌ 명령어에 'atlas-ai'가 포함되어 있지 않습니다${NC}"
+        echo -e "${RED}   ❌ 명령어에 'atrina'가 포함되어 있지 않습니다${NC}"
     fi
 else
     echo -e "${RED}❌ 태스크 명령어 생성 실패${NC}"
@@ -151,4 +151,3 @@ echo "   $COMMAND"
 echo ""
 echo "4. 자동으로 코드 생성 확인"
 echo ""
-

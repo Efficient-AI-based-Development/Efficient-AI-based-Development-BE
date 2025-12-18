@@ -230,7 +230,7 @@ async def stream_service(chat_session_id: int, request: Request, db: Session):
 
                 try:
                     token = await asyncio.wait_for(out_q.get(), timeout=TIMEOUT)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield {"event": "timeout", "data": "no tokens, stream closed"}
                     cancel_ev.set()
                     station = SESSIONS.get(chat_session_id)
@@ -517,7 +517,7 @@ def _ensure_enum(ft: FileType | str) -> FileType:
 
 
 ######################################### SERVICE #############################################
-def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, project_id: int, db: Session):
+async def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int, project_id: int, db: Session):
     cur_chat_session = (
         db.query(ChatSession).filter(ChatSession.id == chat_session_id, ChatSession.user_id == user_id).one_or_none()
     )
@@ -529,7 +529,8 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
 
     if station.last_doc is None:
         raise _http_404("No create File for this session.")
-    updated_obj = store_document_content(user_id, cur_chat_session, project_id, station.last_doc, db)
+    updated_obj = await store_document_content(user_id, cur_chat_session, project_id, station.last_doc, db)
+
     db.commit()
 
     if updated_obj is None:  # Task 같은 경우에는 새로 생성되기 때문에 X
@@ -542,12 +543,55 @@ def apply_ai_last_message_to_content_service(user_id: str, chat_session_id: int,
         except Exception:
             updated_at = None
 
+    # Srs 생성 후 첫 Tasks 자동 생성
+    if isinstance(updated_obj, Document):
+        if updated_obj.type == "SRS":
+            await make_first_tasks(user_id, project_id, db)
+            db.commit()
+
     return StoreFileResponse(
         ok=True,
         file_type=cur_chat_session.file_type,
         file_id=cur_chat_session.file_id,
         updated_at=updated_at,
     )
+
+
+async def make_first_tasks(user_id: str, project_id: int, db: Session):
+    db.query(Task).filter(Task.project_id == project_id).delete()
+
+    # Srs 생성 후 첫 Tasks 자동 생성
+    prompt = (
+        "description을 작성할때 Markdown형식으로 구체적으로 작성해야합니다.\n"
+        "테스크 번호는 1부터 시작입니다.\n"
+        "======== 예시 ========="
+        "## 요구사항\n"
+        "- 키워드 검색 및 카테고리, 가격, 상태, 위치 필터 적용\n"
+        "- 입력 시 디바운스 검색 기능\n"
+        "- 검색 결과 페이징 처리\n"
+        "## 구현 세부사항\n"
+        "- REST API(`GET /api/items?search=...&category=...`) 호출로 서버 측 필터링\n"
+        "- lodash.debounce로 디바운스 처리\n"
+        "- 결과 정렬 및 페이징은 React Query 또는 SWR로 구현\n"
+        "## 테스트 전략\n"
+        "- 검색어 및 필터 조합별로 API 호출 파라미터 검증 단위 테스트\n"
+        "- 통합 테스트로 다양한 필터 조합 결과 확인\n"
+        "========== 예시 종료 ===========\n\n"
+    )
+    prompt += insert_file_info(user_id, project_id, db)
+    answer = await generate_tasklist_endpoint("필요한 상위 문서의 내용은 user의 prompt에 넣었습니다", prompt)
+    data = answer.model_dump()
+    task_list = data.get("tasks")
+    for task in task_list:
+        data = Task(
+            project_id=project_id,
+            title=f"Task{task['task_id']}. {task['title']}",
+            tags=f"{task['assigned_role']}({task['tag']})",
+            priority=task["priority"],
+            description=task["description"],
+            description_md=task["description"],
+        )
+        db.add(data)
 
 
 async def update_doc_file_service(user_id: str, project_id: int, db: Session):
@@ -592,7 +636,7 @@ async def update_doc_file_service(user_id: str, project_id: int, db: Session):
         db.refresh(data)
 
 
-def store_document_content(
+async def store_document_content(
     user_id: str,
     cur_chat_session: ChatSession,
     project_id: int,
@@ -673,6 +717,7 @@ def store_document_content(
         )
 
         db.add(data)
+        await update_doc_file_service(user_id, project_id, db)
         return data
 
     else:
