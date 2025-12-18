@@ -344,7 +344,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         doc = data.get("metadata")
                         msg = {k: v for k, v in data.items() if k != "metadata"}
                     elif file_type_local == "PRD":
-                        answer = await generate_prd_endpoint(prompt)
+                        answer = await generate_prd_endpoint(prompt + "USER_STORY내용은 안나오게 해줘")
                         data = answer.model_dump()
                         doc = data.get("prd_document")
                         msg = data.get("message")
@@ -386,7 +386,7 @@ async def ensure_worker(user_id: str, session_id: int, file_type: str, db: Sessi
                         doc = data.get("metadata")
                         msg = {k: v for k, v in data.items() if k != "metadata"}
                     elif file_type_local == "PRD":
-                        answer = await prd_chat(doc, prompt)
+                        answer = await prd_chat(doc, prompt + "USER_STORY내용은 안나오게 해줘")
                         data = answer.model_dump()
                         doc = data.get("prd_document")
                         msg = data.get("message")
