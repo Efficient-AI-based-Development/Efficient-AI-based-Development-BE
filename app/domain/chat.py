@@ -34,7 +34,7 @@ from app.schemas.chat import (
     StoreFileResponse,
 )
 
-TIMEOUT = 300
+TIMEOUT = 10000
 
 
 @dataclass
@@ -84,6 +84,14 @@ async def start_chat_with_init_file_service(request: ChatSessionCreateRequest, c
     await SESSIONS[resp.chat_id].queue_in.put(content)
     print(content)
     return resp
+
+def print_last_temp_document_service(chat_session_id:int):
+    session = SESSIONS.get(chat_session_id)
+    if session is None:
+        return None  # 또는 raise HTTPException
+
+    return session.last_doc
+
 
 
 async def cancel_session_service(
