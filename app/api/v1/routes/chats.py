@@ -10,7 +10,7 @@ from app.domain.chat import (
     cancel_session_service,
     send_message_service,
     start_chat_with_init_file_service,
-    stream_service,
+    stream_service, print_last_temp_document_service,
 )
 from app.schemas.chat import (
     ChatMessageRequest,
@@ -22,7 +22,6 @@ from app.schemas.chat import (
 
 router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user)])
 
-
 # chat 시작 & init_project 생성
 @router.post("", response_model=ChatSessionCreateResponse, status_code=201)
 async def start_chat_with_init_file(
@@ -31,7 +30,6 @@ async def start_chat_with_init_file(
     db: Session = Depends(get_db),
 ):
     return await start_chat_with_init_file_service(request, current_user, db)
-
 
 # SSE 연결, AI 응답 보내기
 @router.get("/{chat_session_id}/stream")
@@ -48,6 +46,9 @@ async def send_message(
 ):
     return await send_message_service(chat_session_id, request, current_user, db)
 
+@router.get("/{chat_session_id}/tempDocument")
+async def print_last_temp_document(chat_session_id: int):
+    return print_last_temp_document_service(chat_session_id)
 
 @router.post("/{chat_session_id}/cancel", status_code=202)
 async def cancel_session(
